@@ -4,7 +4,8 @@ Painel local que mostra, ao vivo, como os subagentes do [Claude Code](https://co
 
 - **Grafo dos agentes:** as caixinhas vêm de `.claude/agents/*.md` e atualizam sozinhas quando você cria ou edita um agente.
 - **Conexões reais:** cada chamada entre agentes (inclusive subagente chamando subagente) vira uma linha com duração e tokens. Clique nela para ver a tarefa enviada e o retorno.
-- **Linha do tempo:** uma barra por chamada, para ver o que rodou em paralelo e onde a execução esperou.
+- **Paralelismo:** se o orquestrador chama o mesmo agente várias vezes ao mesmo tempo, a caixinha e a conexão mostram "3 em paralelo" e os logs marcam cada instância (#1, #2, #3).
+- **Linha do tempo:** uma barra por chamada, empilhadas quando rodam juntas, para ver o que rodou em paralelo e onde a execução esperou.
 - **Logs por agente:** a lateral agrupa os eventos pelo agente que os executou.
 - **Tokens e custo estimado:** lidos dos transcripts do Claude Code e calculados pela tabela de preços da API.
 - **Sessões e histórico:** cada terminal é uma sessão e cada prompt é uma execução salva, que pode ser reaberta depois.
