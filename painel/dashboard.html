@@ -23,6 +23,9 @@
       --err: #DC2626;
       --err-soft: #FBE1E1;
       --bar: #F8F9FB;
+      --wait: #D97706;
+      --wait-soft: #FEF3C7;
+      --wait-ink: #FFFFFF;
       font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
     }
 
@@ -42,6 +45,9 @@
         --err: #F06262;
         --err-soft: #3A1C1C;
         --bar: #1A2029;
+        --wait: #F2B63D;
+        --wait-soft: #3A2E12;
+        --wait-ink: #1C1400;
       }
     }
 
@@ -252,6 +258,16 @@
       stroke: var(--err);
     }
 
+    .edge[data-s="ready"] {
+      stroke: var(--run);
+      stroke-dasharray: 3 5;
+    }
+
+    .edge[data-s="waiting"] {
+      stroke: var(--wait);
+      stroke-dasharray: 7 6;
+    }
+
     @keyframes flow {
       to {
         stroke-dashoffset: -13;
@@ -292,6 +308,11 @@
     .elabel[data-s="error"] {
       color: var(--err);
       border-color: var(--err);
+    }
+
+    .elabel[data-s="waiting"] {
+      color: var(--wait);
+      border-color: var(--wait);
     }
 
     .node {
@@ -439,6 +460,72 @@
       color: var(--err);
     }
 
+    .node[data-s="ready"] {
+      border-style: dashed;
+      border-color: var(--run);
+    }
+
+    .node[data-s="ready"] .badge {
+      background: var(--run-soft);
+      color: var(--run);
+    }
+
+    /* Esperando você (permissão ou pergunta): amarelo, com balão acima da caixa */
+    .node[data-wait] {
+      border-color: var(--wait);
+      box-shadow: 0 0 0 4px var(--wait-soft);
+      z-index: 3;
+    }
+
+    .node[data-wait] .badge {
+      background: var(--wait-soft);
+      color: var(--wait);
+    }
+
+    .node[data-wait] .badge svg {
+      animation: none;
+    }
+
+    .wait-tip {
+      display: none;
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 9px);
+      transform: translateX(-50%);
+      max-width: 280px;
+      padding: 4px 9px;
+      border-radius: 6px;
+      background: var(--wait);
+      color: var(--wait-ink);
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
+
+    .wait-tip::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 100%;
+      margin-left: -5px;
+      border: 5px solid transparent;
+      border-top-color: var(--wait);
+    }
+
+    .node[data-wait] .wait-tip {
+      display: block;
+      overflow: visible;
+    }
+
+    .wait-tip span {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     @keyframes spin {
       to {
         transform: rotate(360deg);
@@ -544,6 +631,12 @@
       border-color: var(--err);
       background: var(--err-soft);
       color: var(--err);
+    }
+
+    .tl-bar[data-s="waiting"] {
+      border-color: var(--wait);
+      background: var(--wait-soft);
+      color: var(--wait);
     }
 
     .tl-bar[data-main] {
@@ -690,6 +783,15 @@
       background: var(--err);
     }
 
+    summary .dot[data-s="ready"] {
+      background: var(--run);
+      opacity: .5;
+    }
+
+    summary .dot[data-wait] {
+      background: var(--wait);
+    }
+
     summary .name {
       flex: 1;
       min-width: 0;
@@ -734,6 +836,11 @@
 
     .log li[data-k="error"] span {
       color: var(--err);
+    }
+
+    .log li[data-k="wait"] span {
+      color: var(--wait);
+      font-weight: 500;
     }
 
     .log time {
@@ -919,20 +1026,23 @@
     // Os subagentes vêm do server.js, que lê .claude/agents/*.md (campos name e description).
     // Agentes chamados que não estão na pasta (ex.: Explore, general-purpose) aparecem quando forem usados.
     const W = 240, H = 86, GAPX = 110, GAPY = 22, PAD = 48;
-    const LABEL = { idle: 'Aguardando', running: 'Executando', done: 'Concluído', error: 'Com erro' };
+    const LABEL = { idle: 'Aguardando', ready: 'Preparado', running: 'Executando', done: 'Concluído', error: 'Com erro' };
     const ICON = {
       idle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>',
       running: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 4a8 8 0 1 1-8 8"/></svg>',
       done: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
       error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>',
+      ready: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"><circle cx="12" cy="12" r="8"/></svg>',
+      wait: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 6v8M12 18h.01"/></svg>',
     };
     const CHEV = '<svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 2.5L8 6l-3.5 3.5"/></svg>';
 
     const $ = (id) => document.getElementById(id);
     const nodes = new Map();      // id do nó -> estado do nó
-    const agentIds = new Map();   // agent_id do Claude Code -> id do nó
-    const instance = new Map();   // agent_id -> nº da instância daquele agente nesta execução (#1, #2...)
+    const agentIds = new Map();   // agent_id do Claude Code -> id da caixa que ele ocupa
+    const agentBase = new Map();  // agent_id -> tipo do agente (nome em .claude/agents)
     const pending = new Map();    // agent_id ainda sem chamada ligada -> { stoppedAt, usage, result }
+    let lastTool = null;          // última caixa que pediu uma ferramenta (para avisos sem agent_id)
     const groups = new Map();     // id do nó -> grupo de logs
     let calls = [];               // chamadas entre agentes (as arestas do grafo)
     let failures = [];            // falhas de ferramenta, para a linha do tempo
@@ -978,14 +1088,14 @@
       el.tabIndex = 0;
       if (kind === 'prompt') el.dataset.noIn = '';
       if (extra) el.dataset.extra = '';
-      el.innerHTML = `<div class="badge"></div><div class="txt"><div class="title"><span></span><span class="time"></span></div><div class="detail"></div><div class="usage"></div></div>`;
+      el.innerHTML = `<div class="wait-tip" role="status"><span></span></div><div class="badge"></div><div class="txt"><div class="title"><span></span><span class="time"></span></div><div class="detail"></div><div class="usage"></div></div>`;
       el.title = role;
       $('nodes').appendChild(el);
       const n = {
         id, label, role, kind, extra, el, col: kind === 'prompt' ? 0 : kind === 'main' ? 1 : 2,
-        order: seq++, status: 'idle', detail: role, start: 0, end: 0, running: 0
+        order: seq++, status: 'idle', detail: role, start: 0, end: 0, running: 0, base: id, inst: 1, wait: null
       };
-      el.querySelector('.title span').textContent = label;
+      el.querySelector('.title > span').textContent = label;
       el.onclick = el.onkeydown = (e) => { if (e.type === 'click' || e.key === 'Enter') focusGroup(n.id); };
       nodes.set(id, n);
       paint(n);
@@ -998,6 +1108,31 @@
       const n = addNode(id, id, 'Fora de .claude/agents', 'agent', true);
       layout();
       return n;
+    }
+
+    // Uma caixa por instância em paralelo: se todas as caixas de um agente estão ocupadas,
+    // abre "dev #2", "dev #3"... logo abaixo da original. Caixas livres são reaproveitadas.
+    const boxesOf = (base) => [...nodes.values()].filter((n) => n.kind === 'agent' && n.base === base).sort((a, b) => a.inst - b.inst);
+    const busy = (n) => calls.some((c) => c.to === n.id && !c.end);
+    function pickBox(baseNode) {
+      const boxes = boxesOf(baseNode.id);
+      const free = boxes.find((b) => !busy(b));
+      if (free) return free;
+      const k = boxes.length + 1;
+      const n = addNode(`${baseNode.id}#${k}`, `${baseNode.id} #${k}`, baseNode.role, 'agent');
+      Object.assign(n, { base: baseNode.id, inst: k, col: baseNode.col, order: baseNode.order + k / 1000, extra: true });
+      relabel(baseNode.id);
+      layout();
+      return n;
+    }
+    function relabel(base) {
+      const boxes = boxesOf(base);
+      for (const b of boxes) {
+        b.label = boxes.length > 1 ? `${base} #${b.inst}` : base;
+        b.el.querySelector('.title > span').textContent = b.label;
+        const g = groups.get(b.id);
+        if (g) g.el.querySelector('.name').textContent = b.label;
+      }
     }
 
     // Sincroniza com .claude/agents: cria, atualiza e remove caixinhas sem apagar as que estão em uso.
@@ -1014,12 +1149,18 @@
         paint(n);
       });
       for (const n of [...nodes.values()]) {
-        if (n.kind === 'agent' && !n.extra && !ids.has(n.id)) {
+        if (n.kind === 'agent' && n.inst === 1 && !n.extra && !ids.has(n.id)) {
           if (calls.some((c) => c.to === n.id || c.from === n.id)) { n.extra = true; n.role = 'Fora de .claude/agents'; n.el.dataset.extra = ''; }
           else { n.el.remove(); nodes.delete(n.id); }
         }
       }
       layout();
+    }
+
+    // O aviso de "nenhum agente" some assim que existir qualquer caixinha de agente (da pasta ou chamada ao vivo).
+    function updateHint() {
+      const h = $('hint');
+      if (h) h.hidden = !h.textContent || [...nodes.values()].some((n) => n.kind === 'agent');
     }
 
     function layout() {
@@ -1039,6 +1180,7 @@
       $('stage').style.width = PAD * 2 + (maxCol + 1) * W + maxCol * GAPX + 'px';
       $('stage').style.height = tallest + PAD * 2 + 'px';
       fit();
+      updateHint();
       drawEdges();
     }
     // Reduz o desenho para caber na largura da tela quando a cadeia de chamadas fica longa.
@@ -1051,9 +1193,9 @@
 
     // Quem é chamado por um subagente vai para a coluna seguinte à de quem chamou.
     function pushRight(child, parent) {
-      if (child.kind !== 'agent' || child === parent) return;
+      if (child.kind !== 'agent' || child === parent || child.base === parent.base) return;
       const want = Math.min(parent.col + 1, 6);
-      if (child.col < want) { child.col = want; layout(); }
+      if (child.col < want) { for (const b of boxesOf(child.base)) b.col = want; layout(); }
     }
 
     function nodeUsage(n) {
@@ -1064,16 +1206,34 @@
 
     function paint(n) {
       n.el.dataset.s = n.status;
-      n.el.querySelector('.badge').innerHTML = ICON[n.status];
-      n.el.querySelector('.detail').textContent = (n.running > 1 ? `${n.running} em paralelo · ` : '') + (n.detail || LABEL[n.status]);
+      if (n.wait) n.el.dataset.wait = ''; else delete n.el.dataset.wait;
+      n.el.querySelector('.wait-tip span').textContent = n.wait ? 'Esperando você: ' + n.wait.text : '';
+      n.el.querySelector('.badge').innerHTML = ICON[n.wait ? 'wait' : n.status];
+      n.el.querySelector('.detail').textContent = n.detail || LABEL[n.status];
       const u = nodeUsage(n);
       const ue = n.el.querySelector('.usage');
       ue.textContent = fmtUsage(u);
       ue.title = usageTip(u);
-      n.el.setAttribute('aria-label', `${n.label}: ${LABEL[n.status]}`);
+      n.el.setAttribute('aria-label', `${n.label}: ${n.wait ? 'esperando você, ' + n.wait.text : LABEL[n.status]}`);
+      n.el.title = n.wait ? `Esperando você: ${n.wait.text} (desde ${clock(n.wait.ts)})` : n.role;
       tick(n);
       const g = groups.get(n.id);
-      if (g) g.dot.dataset.s = n.status;
+      if (g) { g.dot.dataset.s = n.status; if (n.wait) g.dot.dataset.wait = ''; else delete g.dot.dataset.wait; }
+    }
+
+    // Caixa esperando sua ação no Claude Code (permissão de ferramenta, pergunta, diálogo).
+    function markWait(n, text, ts) {
+      if (!n || (n.wait && n.wait.text === text)) return;
+      n.wait = { text, ts };
+      log(n, `esperando você: ${text}`, ts, 'wait');
+      paint(n);
+      drawEdges();
+    }
+    function clearWait(n) {
+      if (!n || !n.wait) return;
+      n.wait = null;
+      paint(n);
+      drawEdges();
     }
     function tick(n) {
       n.el.querySelector('.time').textContent = n.start ? fmt((n.end || now()) - n.start) : '';
@@ -1081,7 +1241,8 @@
 
     function set(n, status, detail, ts = Date.now()) {
       if (!n) return;
-      if (status === 'running' && n.status !== 'running') { n.start = ts; n.end = 0; }
+      const active = (st) => st === 'running' || st === 'ready';
+      if (active(status) && !active(n.status)) { n.start = ts; n.end = 0; }
       if ((status === 'done' || status === 'error') && n.start && !n.end) n.end = ts;
       n.status = status;
       if (detail !== undefined) n.detail = detail;
@@ -1110,13 +1271,15 @@
         if (!s || !t) continue;
         withOut.add(s.id);
         const last = list[list.length - 1];
-        const st = list.some((c) => !c.end) ? 'running' : last.status;
+        const st = t.wait && list.some((c) => !c.end) ? 'waiting'
+          : list.some((c) => !c.end && c.started) ? 'running'
+            : list.some((c) => !c.end) ? 'ready' : last.status;
         const { d, mx, my } = geometry(s, t);
         paths.push(`<path class="edge" data-s="${st}" d="${d}"/>`);
         const open = list.filter((c) => !c.end);
         const live = open[0] || last;
         const u = sumUsage(list.map((c) => c.usage));
-        const head = open.length > 1 ? `${open.length} em paralelo · ` : list.length > 1 ? `${list.length}× · ` : '';
+        const head = list.length > 1 ? `${list.length}× · ` : '';
         const text = head + fmt((live.end || now()) - live.start) + (tokTotal(u) ? ' · ' + fmtTok(tokTotal(u)) + ' tok' : '');
         labels.push({ mx, my, st, text, list, tip: `${s.label} → ${t.label}: clique para ver a tarefa e o retorno` });
       }
@@ -1150,21 +1313,32 @@
     }
 
     setInterval(() => {
-      nodes.forEach((n) => n.status === 'running' && tick(n));
+      nodes.forEach((n) => (n.status === 'running' || n.status === 'ready') && tick(n));
       if (calls.some((c) => !c.end) || nodes.get('main').status === 'running') drawEdges();
     }, 250);
 
-    function startCall(ev, from, to) {
+    // Abre uma chamada de `from` para o agente `baseNode`, numa caixa livre dele.
+    // Fica "Preparado" até o subagente começar de fato (SubagentStart).
+    function startCall(ev, from, baseNode) {
+      pushRight(baseNode, from);
+      const to = pickBox(baseNode);
       const c = {
-        from: from.id, to: to.id, start: ev.ts, end: 0, status: 'running', toolUseId: ev.toolUseId,
-        background: !!ev.background, agentId: null, detail: ev.detail || '', taskPrompt: ev.taskPrompt || '', result: '', usage: null
+        from: from.id, to: to.id, base: baseNode.id, start: ev.ts, end: 0, status: 'running', started: false,
+        toolUseId: ev.toolUseId, background: !!ev.background, agentId: null, detail: ev.detail || '', taskPrompt: ev.taskPrompt || '', result: '', usage: null
       };
       calls.push(c);
-      pushRight(to, from);
       to.running++;
-      set(to, 'running', ev.detail || 'Iniciando', ev.ts);
+      set(to, 'ready', ev.detail ? `Preparado: ${ev.detail}` : 'Preparado', ev.ts);
       drawEdges();
       return c;
+    }
+    // O subagente começou a trabalhar nesta chamada.
+    function begin(c, ts) {
+      if (!c || c.started || c.end) return;
+      c.started = true;
+      const to = nodes.get(c.to);
+      set(to, 'running', c.detail || 'Iniciando', ts);
+      drawEdges();
     }
 
     function finishCall(c, status, ts) {
@@ -1173,10 +1347,10 @@
       const to = nodes.get(c.to), from = nodes.get(c.from);
       const took = fmt(c.end - c.start);
       to.running = Math.max(0, to.running - 1);
+      to.wait = null;
       if (!to.running) set(to, status, status === 'error' ? `Falhou após ${took}` : `Concluído em ${took}`, ts);
       else paint(to);
-      const k = c.agentId && instanceCount(to.id) > 1 ? `#${instance.get(c.agentId)} · ` : '';
-      log(to, k + (status === 'error' ? `falhou após ${took}` : `concluiu em ${took} e devolveu para ${from.label}`), ts, status);
+      log(to, status === 'error' ? `falhou após ${took}` : `concluiu em ${took} e devolveu para ${from.label}`, ts, status);
       if (from && from.status === 'running' && !calls.some((x) => x.from === from.id && !x.end)) {
         from.detail = from.id === 'main' ? 'Consolidando resultados' : 'Retomando a tarefa';
         paint(from);
@@ -1200,7 +1374,7 @@
         <div>Início<strong></strong></div><div>Duração<strong></strong></div><div>Situação<strong></strong></div>
         <div>Tokens<strong></strong></div><div>Custo estimado<strong></strong></div></div>
       <h5>Tarefa enviada</h5><pre></pre><h5>Resultado devolvido</h5><pre></pre>`;
-        el.querySelector('h4').textContent = `${instTag(c)}${i + 1}ª chamada${c.detail ? ': ' + c.detail : ''}${c.background ? ' (segundo plano)' : ''}`;
+        el.querySelector('h4').textContent = `${i + 1}ª chamada${c.detail ? ': ' + c.detail : ''}${c.background ? ' (segundo plano)' : ''}`;
         const facts = el.querySelectorAll('.facts strong');
         facts[0].textContent = clock(c.start);
         facts[1].textContent = fmt((c.end || now()) - c.start);
@@ -1267,11 +1441,11 @@
           tracks[k] = end;
           const el = document.createElement('button');
           el.className = 'tl-bar';
-          el.dataset.s = b.end ? b.status : 'running';
+          el.dataset.s = b.end ? b.status : n.wait ? 'waiting' : 'running';
           el.style.left = pct(b.start) + '%';
           el.style.width = Math.max(0.4, pct(end) - pct(b.start)) + '%';
           el.style.top = 9 + k * 26 + 'px';
-          el.textContent = instTag(b) + fmt(end - b.start) + (b.usage ? ' · ' + fmtTok(tokTotal(b.usage)) + ' tok' : '');
+          el.textContent = fmt(end - b.start) + (b.usage ? ' · ' + fmtTok(tokTotal(b.usage)) + ' tok' : '');
           if (b.main) { el.dataset.main = ''; el.title = `Orquestrador: ${fmt(end - b.start)}`; el.tabIndex = -1; }
           else {
             const from = nodes.get(b.from);
@@ -1353,8 +1527,9 @@
       calls = [];
       failures = [];
       mainUsage = null;
+      lastTool = null;
       agentIds.clear();
-      instance.clear();
+      agentBase.clear();
       pending.clear();
       groups.clear();
       $('groups').innerHTML = '';
@@ -1362,8 +1537,8 @@
       $('ask').hidden = true;
       for (const n of [...nodes.values()]) {
         if (n.extra) { n.el.remove(); nodes.delete(n.id); continue; }
-        n.start = n.end = 0; n.running = 0; n.status = 'idle'; n.detail = n.role;
-        if (n.kind === 'agent') n.col = 2;
+        n.start = n.end = 0; n.running = 0; n.status = 'idle'; n.detail = n.role; n.wait = null;
+        if (n.kind === 'agent') { n.col = 2; relabel(n.base); }
         paint(n);
       }
       layout();
@@ -1372,9 +1547,10 @@
     const isAgentTool = (t) => t === 'Task' || t === 'Agent';
 
     // Ligação chamada <-> agent_id. Com várias chamadas ao mesmo agente em paralelo, o SubagentStart
-    // não diz qual chamada ele atende; então só liga quando não há dúvida e guarda o resto até ter uma pista.
-    const unboundCalls = (nodeId) => openCallList().filter((c) => c.to === nodeId && !c.agentId);
-    const unboundAgents = (nodeId) => [...agentIds].filter(([a, id]) => id === nodeId && !calls.some((c) => c.agentId === a)).map(([a]) => a);
+    // não diz qual chamada ele atende. A caixa é escolhida pela ordem (provisória, para já mostrar o
+    // trabalho), mas o tempo, os tokens e o resultado só são ligados quando não há dúvida.
+    const unboundCalls = (base) => openCallList().filter((c) => c.base === base && !c.agentId);
+    const unboundAgents = (base) => [...agentBase].filter(([a, b]) => b === base && !calls.some((c) => c.agentId === a)).map(([a]) => a);
     function remember(agentId, info) {
       const p = pending.get(agentId) || {};
       for (const [k, v] of Object.entries(info)) if (v !== undefined && p[k] === undefined) p[k] = v;
@@ -1382,30 +1558,41 @@
     }
     function bindAgent(c, agentId) {
       c.agentId = agentId;
+      agentBase.set(agentId, c.base);
+      // Se a caixa provisória era outra, a instância passa a aparecer na caixa desta chamada.
+      // Quem estava provisoriamente na caixa desta chamada troca de lugar com ela.
+      const prev = agentIds.get(agentId);
+      const squatter = unboundAgents(c.base).find((a) => a !== agentId && agentIds.get(a) === c.to);
+      agentIds.set(agentId, c.to);
+      if (squatter && prev) agentIds.set(squatter, prev);
+      begin(c, c.start);
       const p = pending.get(agentId);
       pending.delete(agentId);
-      if (!p) return;
+      if (!p) return drawEdges();
       if (p.usage) c.usage = p.usage;
       if (p.result && !c.result) c.result = p.result;
       if (p.stoppedAt) finishCall(c, 'done', p.stoppedAt);
       else drawEdges();
     }
-    function settle(nodeId) {
-      const cs = unboundCalls(nodeId), as = unboundAgents(nodeId);
+    // Último recurso ao terminar: liga o agente à chamada aberta da caixa onde ele já aparece.
+    function bindByBox(agentId) {
+      const box = agentIds.get(agentId);
+      const c = box && openCallList().find((x) => x.to === box && !x.agentId);
+      if (c) bindAgent(c, agentId);
+      return c;
+    }
+    function settle(base) {
+      const cs = unboundCalls(base), as = unboundAgents(base);
       if (cs.length === 1 && as.length === 1) bindAgent(cs[0], as[0]);
     }
-    const tag = (ev) => { const n = nodes.get(agentIds.get(ev.agentId)); const k = instance.get(ev.agentId); return n && k && instanceCount(n.id) > 1 ? `#${k} · ` : ''; };
-    // Mesmo número das linhas de log: #k = ordem em que a instância do agente começou.
-    const instTag = (c) => (c.agentId && instance.get(c.agentId) && instanceCount(c.to) > 1 ? `#${instance.get(c.agentId)} · ` : '');
-    const instanceCount = (nodeId) => [...agentIds.values()].filter((id) => id === nodeId).length;
     const main = () => nodes.get('main');
     function ownerOf(ev) {
       if (!ev.agentId) return main();
       return nodes.get(agentIds.get(ev.agentId)) || (ev.agentType ? ensureAgent(ev.agentType) : main());
     }
-    function findCall(ev, to) {
+    function findCall(ev, base) {
       return (ev.toolUseId && calls.find((c) => c.toolUseId === ev.toolUseId))
-        || openCallList().find((c) => c.to === (to && to.id) && !c.background);
+        || openCallList().find((c) => c.base === base && !c.background);
     }
     function showAsk(text, label) {
       $('ask').hidden = false;
@@ -1414,6 +1601,8 @@
       $('empty').hidden = true;
       renderStats();
     }
+    const TOOL_NAMES = { SubagentHandback: 'Entregando o relatório final' };
+    const toolText = (ev) => { const t = TOOL_NAMES[ev.tool] || ev.tool || 'ferramenta'; return ev.detail ? `${t}: ${ev.detail}` : t; };
 
     function handle(ev) {
       const ts = ev.ts || (ev.ts = Date.now());
@@ -1424,9 +1613,10 @@
           if (internal) {
             const from = nodes.get(agentIds.get(ev.fromAgentId));
             const who = from ? from.label : 'um subagente';
-            const c = calls.find((x) => x.agentId && x.agentId === ev.fromAgentId);
+            let c = calls.find((x) => x.agentId && x.agentId === ev.fromAgentId);
+            // O subagente terminou e entregou: se a ligação ainda estava em dúvida, fecha pela caixa dele.
+            if (!c && ev.fromAgentId) { remember(ev.fromAgentId, { result: ev.result, stoppedAt: pending.get(ev.fromAgentId)?.stoppedAt || ts }); c = bindByBox(ev.fromAgentId); }
             if (c && ev.result && !c.result) c.result = ev.result;
-            if (!c && ev.fromAgentId) remember(ev.fromAgentId, { result: ev.result, stoppedAt: ts });
             if (internal === 'task-notification') {
               if (c) finishCall(c, /fail|error|kill/i.test(ev.status || '') ? 'error' : 'done', ts);
               set(main(), 'running', `Lendo o retorno de ${who}`, ts);
@@ -1446,28 +1636,57 @@
 
         case 'PreToolUse': {
           const owner = ownerOf(ev);
+          clearWait(owner);
           if (isAgentTool(ev.tool)) {
-            const to = ensureAgent(ev.subagent || 'general-purpose');
-            startCall(ev, owner, to);
+            const base = ensureAgent(ev.subagent || 'general-purpose');
+            const c = startCall(ev, owner, base);
+            const to = nodes.get(c.to);
             set(owner, 'running', `Aguardando ${to.label}`, ts);
             log(owner, `chamou ${to.label}${ev.background ? ' em segundo plano' : ''}${ev.detail ? ': ' + ev.detail : ''}`, ts, 'call');
             log(to, `recebeu tarefa de ${owner.label}${ev.detail ? ': ' + ev.detail : ''}`, ts, 'call');
           } else {
-            const text = ev.detail ? `${ev.tool}: ${ev.detail}` : ev.tool;
-            if (owner.status !== 'running') set(owner, 'running', text, ts);
-            else { owner.detail = text; paint(owner); }
-            log(owner, tag(ev) + text, ts);
+            const text = toolText(ev);
+            const reopen = owner.kind === 'main' || busy(owner);
+            if (owner.status !== 'running' && reopen) set(owner, 'running', text, ts);
+            else if (owner.status === 'running') { owner.detail = text; paint(owner); }
+            log(owner, text, ts);
+            lastTool = { node: owner.id, text, ts };
+            // Pergunta ao usuário: a caixa fica esperando até a resposta chegar (PostToolUse).
+            if (/^AskUserQuestion$/.test(ev.tool)) markWait(owner, 'responder uma pergunta', ts);
           }
           break;
         }
 
+        case 'PermissionRequest': {
+          // O Claude Code abriu o pedido de permissão desta ferramenta e está esperando você.
+          const owner = ownerOf(ev);
+          markWait(owner, `permitir ${toolText(ev)}`, ts);
+          break;
+        }
+
+        case 'Notification': {
+          const t = ev.notificationType || '';
+          const asks = /permission|elicitation/.test(t) || (!t && /permiss|approv|input/i.test(ev.message || ''));
+          if (!asks) break;
+          // Aviso sem agent_id: fica com quem pediu a última ferramenta (se ainda não estiver marcado).
+          if (!ev.agentId && [...nodes.values()].some((n) => n.wait)) break;
+          const owner = ev.agentId ? ownerOf(ev) : nodes.get(lastTool && lastTool.node) || main();
+          markWait(owner, ev.message || 'aguardando sua resposta', ts);
+          break;
+        }
+
         case 'SubagentStart': {
-          const n = ensureAgent(ev.agentType);
-          if (!n || !ev.agentId) break;
-          agentIds.set(ev.agentId, n.id);
-          instance.set(ev.agentId, [...agentIds.values()].filter((id) => id === n.id).length);
-          if (!unboundCalls(n.id).length) bindAgent(startCall(ev, main(), n), ev.agentId); // chamada sem PreToolUse (hook ausente)
-          else settle(n.id);
+          const base = ensureAgent(ev.agentType);
+          if (!base || !ev.agentId) break;
+          agentBase.set(ev.agentId, base.id);
+          const open = unboundCalls(base.id);
+          if (!open.length) { bindAgent(startCall(ev, main(), base), ev.agentId); break; } // chamada sem PreToolUse (hook ausente)
+          // Caixa provisória: a primeira chamada ainda "Preparada" deste agente.
+          const claimed = new Set([...agentIds.values()]);
+          const c = open.find((x) => !x.started && !claimed.has(x.to)) || open[0];
+          agentIds.set(ev.agentId, c.to);
+          begin(c, ts);
+          settle(base.id);
           break;
         }
 
@@ -1475,41 +1694,41 @@
           const c = calls.find((x) => x.agentId === ev.agentId);
           if (c) { finishCall(c, 'done', ts); break; }
           remember(ev.agentId, { stoppedAt: ts });
-          const n = nodes.get(agentIds.get(ev.agentId));
-          if (!n) break;
-          settle(n.id);
+          const base = agentBase.get(ev.agentId);
+          if (!base) break;
+          settle(base);
           // Várias chamadas em segundo plano ainda sem dono: sem outra pista, liga pela ordem.
-          const left = unboundCalls(n.id);
-          if (pending.has(ev.agentId) && left.length && left.every((x) => x.background)) bindAgent(left[0], ev.agentId);
+          const left = unboundCalls(base);
+          if (pending.has(ev.agentId) && left.length && left.every((x) => x.background)) bindByBox(ev.agentId) || bindAgent(left[0], ev.agentId);
           break;
         }
 
         case 'PostToolUse':
+          clearWait(ownerOf(ev));
           if (isAgentTool(ev.tool)) {
-            const c = findCall(ev, nodes.get(ev.subagent));
+            const c = findCall(ev, ev.subagent);
             if (!c) break;
             // O retorno da ferramenta diz qual agent_id atendeu esta chamada: é a ligação mais confiável.
-            if (ev.resultAgentId && !c.agentId && !calls.some((x) => x.agentId === ev.resultAgentId)) {
-              if (!agentIds.has(ev.resultAgentId)) agentIds.set(ev.resultAgentId, c.to);
-              bindAgent(c, ev.resultAgentId);
-            }
+            if (ev.resultAgentId && !c.agentId && !calls.some((x) => x.agentId === ev.resultAgentId)) bindAgent(c, ev.resultAgentId);
             // Em segundo plano, o retorno imediato é só "tarefa iniciada"; o resultado vem depois.
+            if (ev.async) c.background = true;
             if (ev.result && !c.background) c.result = ev.result;
             if (!c.background) finishCall(c, 'done', ts);
-            settle(c.to);
+            settle(c.base);
           }
           break;
 
         case 'PostToolUseFailure': {
           const owner = ownerOf(ev);
+          clearWait(owner);
           if (isAgentTool(ev.tool)) {
-            const c = findCall(ev, nodes.get(ev.subagent));
+            const c = findCall(ev, ev.subagent);
             if (c) finishCall(c, 'error', ts);
           } else {
             owner.detail = `Falha em ${ev.tool}, tentando de novo`;
             paint(owner);
             failures.push({ node: owner.id, tool: ev.tool, ts });
-            log(owner, `${tag(ev)}falha em ${ev.tool}`, ts, 'error');
+            log(owner, `falha em ${ev.tool}`, ts, 'error');
             if (view.mode === 'timeline') renderTimeline();
           }
           break;
@@ -1530,6 +1749,7 @@
         case 'Stop': {
           if (ev.agentId) break;
           const m = main();
+          clearWait(m);
           if (m.status !== 'running') break;
           const bg = openCallList().filter((c) => c.from === 'main').length;
           if (bg) { m.detail = `Aguardando ${bg} subagente(s) em segundo plano`; paint(m); break; }
@@ -1631,9 +1851,10 @@
         case 'Hello': refreshRuns(); return;
         case 'AgentsConfig':
           applyConfig(ev.agents || []);
-          $('src').textContent = `${(ev.agents || []).length} agente(s) em ${ev.root ? ev.root.replace(/[\\/]$/, '') + '/.claude/agents' : '.claude/agents'}`;
-          $('src').title = $('src').textContent;
-          $('hint').hidden = (ev.agents || []).length > 0;
+          $('src').textContent = `${(ev.agents || []).length} agente(s) · projeto: ${ev.root || '?'}`;
+          $('src').title = (ev.dirs || []).join('\n');
+          $('hint').textContent = `Nenhum agente encontrado em ${(ev.dirs || ['.claude/agents']).join(' nem em ')}. Confira a pasta passada para o server.js: ela precisa ser a raiz do projeto que tem .claude/agents.`;
+          updateHint();
           return;
         case 'Session':
           if (ev.session) sessions.set(ev.session.id, ev.session);
@@ -1681,7 +1902,6 @@
     addNode('main', 'Orquestrador', 'Sessão principal', 'main');
     const hint = document.createElement('p');
     hint.className = 'hint'; hint.id = 'hint';
-    hint.textContent = 'Nenhum agente encontrado em .claude/agents. Rode o server.js na pasta do projeto (ou passe a pasta como argumento).';
     hint.hidden = true;
     $('stage').appendChild(hint);
     layout();
@@ -1710,6 +1930,15 @@
         [2000, { event: 'PreToolUse', tool: 'Agent', toolUseId: 't1', subagent: A, detail: 'Criar fila de notificações', taskPrompt: 'Crie a fila "tarefas-criadas" no infra/ambiente.json com DLQ e retenção de 4 dias. Valide com npm run infra:validar.' }],
         [2100, { event: 'PreToolUse', tool: 'Agent', toolUseId: 't2', subagent: B, detail: 'Implementar endpoint de tarefas', taskPrompt: 'Implemente POST /tarefas em app/src/tarefas.js: valide o corpo, grave a tarefa e publique na fila tarefas-criadas. Rode npm test.' }],
         [2150, { event: 'PreToolUse', tool: 'Agent', toolUseId: 't6', subagent: B, detail: 'Escrever testes do endpoint', taskPrompt: 'Escreva os testes de POST /tarefas em app/test/tarefas.test.js cobrindo validação e publicação na fila.' }],
+        [2180, { event: 'PreToolUse', tool: 'Agent', toolUseId: 't7', subagent: B, detail: 'Documentar a API de tarefas', taskPrompt: 'Atualize docs/api.md com o novo endpoint POST /tarefas e gere a documentação com npm run docs.' }],
+        [2350, { event: 'SubagentStart', agentId: 'a7', agentType: B }],
+        [3000, { event: 'PreToolUse', agentId: 'a7', agentType: B, tool: 'Edit', detail: 'docs/api.md' }],
+        [3900, { event: 'PreToolUse', agentId: 'a7', agentType: B, tool: 'Bash', detail: 'npm run docs' }],
+        [3950, { event: 'PermissionRequest', agentId: 'a7', agentType: B, tool: 'Bash', detail: 'npm run docs' }],
+        [6900, { event: 'PostToolUse', agentId: 'a7', agentType: B, tool: 'Bash', detail: 'npm run docs' }],
+        [7300, { event: 'SubagentStop', agentId: 'a7', agentType: B }],
+        [7350, { event: 'PostToolUse', tool: 'Agent', toolUseId: 't7', subagent: B, resultAgentId: 'a7', result: 'docs/api.md atualizado e documentação gerada.' }],
+        [7500, { event: 'Usage', agentId: 'a7', usage: u(1200, 800, 15000, 0.014), source: 'transcript' }],
         [2200, { event: 'SubagentStart', agentId: 'a1', agentType: A }],
         [2300, { event: 'SubagentStart', agentId: 'a6', agentType: B }],
         [3400, { event: 'PreToolUse', agentId: 'a6', agentType: B, tool: 'Write', detail: 'app/test/tarefas.test.js' }],
@@ -1730,7 +1959,7 @@
         [5400, { event: 'PreToolUse', agentId: 'a1', agentType: A, tool: 'Bash', detail: 'npm run infra:validar' }],
         [5800, { event: 'PreToolUse', agentId: 'a2', agentType: B, tool: 'Write', detail: 'app/src/tarefas.js' }],
         [6800, { event: 'SubagentStop', agentId: 'a1', agentType: A }],
-        [6850, { event: 'PostToolUse', tool: 'Agent', toolUseId: 't1', subagent: A, result: 'Fila tarefas-criadas criada com DLQ tarefas-criadas-dlq. Validação passou.' }],
+        [6850, { event: 'PostToolUse', tool: 'Agent', toolUseId: 't1', subagent: A, resultAgentId: 'a1', result: 'Fila tarefas-criadas criada com DLQ tarefas-criadas-dlq. Validação passou.' }],
         [7100, { event: 'Usage', agentId: 'a1', usage: u(2400, 1300, 30000, 0.031), source: 'transcript' }],
         [7200, { event: 'PreToolUse', agentId: 'a2', agentType: B, tool: 'Bash', detail: 'npm test' }],
         [8000, { event: 'PostToolUseFailure', agentId: 'a2', agentType: B, tool: 'Bash' }],

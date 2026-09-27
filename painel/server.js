@@ -8,7 +8,10 @@ const path = require('path');
 
 const PORT = Number(process.env.SQUAD_PANEL_PORT) || 4000;
 const ROOT = path.resolve(process.argv[2] || process.env.SQUAD_PROJECT_DIR || process.cwd());
-const AGENTS_DIR = path.join(ROOT, '.claude', 'agents');
+// Mesmas pastas que o Claude Code usa: as do projeto e as do usuário (~/.claude/agents).
+// Se o mesmo nome existir nas duas, vale a do projeto.
+const AGENTS_DIRS = [path.join(ROOT, '.claude', 'agents'), path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'agents')]
+  .filter((d, i, all) => all.indexOf(d) === i);
 const HISTORY_DIR = path.resolve(process.env.SQUAD_HISTORY_DIR || path.join(os.homedir(), '.squad-panel', 'historico'));
 const MAX_RUNS = 300;           // execuções guardadas no histórico
 const MAX_EVENTS = 5000;        // eventos por execução
@@ -42,24 +45,27 @@ function parseFrontmatter(text) {
   return out;
 }
 
+const mdFiles = (dir) => { try { return fs.readdirSync(dir).filter((f) => f.endsWith('.md')).sort(); } catch { return []; } };
+
 function readAgents() {
-  let files = [];
-  try { files = fs.readdirSync(AGENTS_DIR).filter((f) => f.endsWith('.md')).sort(); } catch { return []; }
   const list = [];
-  for (const f of files) {
-    try {
-      const fm = parseFrontmatter(fs.readFileSync(path.join(AGENTS_DIR, f), 'utf8'));
-      list.push({ id: fm.name || path.basename(f, '.md'), description: fm.description || '', model: fm.model || '', file: f });
-    } catch { /* arquivo ilegível: ignora */ }
-  }
+  AGENTS_DIRS.forEach((dir, i) => {
+    for (const f of mdFiles(dir)) {
+      try {
+        const fm = parseFrontmatter(fs.readFileSync(path.join(dir, f), 'utf8'));
+        const id = fm.name || path.basename(f, '.md');
+        if (list.some((a) => a.id === id)) continue;
+        list.push({ id, description: fm.description || '', model: fm.model || '', file: f, scope: i === 0 ? 'projeto' : 'usuário' });
+      } catch { /* arquivo ilegível: ignora */ }
+    }
+  });
   return list;
 }
 
 // Assinatura barata (nome + data de alteração) para perceber arquivos criados, editados ou apagados.
 function signature() {
   try {
-    return fs.readdirSync(AGENTS_DIR).filter((f) => f.endsWith('.md'))
-      .map((f) => f + ':' + fs.statSync(path.join(AGENTS_DIR, f)).mtimeMs).sort().join('|');
+    return AGENTS_DIRS.map((d) => mdFiles(d).map((f) => f + ':' + fs.statSync(path.join(d, f)).mtimeMs).join('|')).join('#');
   } catch { return ''; }
 }
 
@@ -69,9 +75,9 @@ function refreshAgents(force) {
   agentsSig = sig;
   agents = readAgents();
   broadcast(agentsEvent());
-  console.log(`Agentes em ${AGENTS_DIR}: ${agents.map((a) => a.id).join(', ') || '(nenhum)'}`);
+  console.log(`Agentes em ${AGENTS_DIRS.join(' e ')}: ${agents.map((a) => a.id).join(', ') || '(nenhum)'}`);
 }
-const agentsEvent = () => ({ event: 'AgentsConfig', agents, root: ROOT, ts: Date.now() });
+const agentsEvent = () => ({ event: 'AgentsConfig', agents, root: ROOT, dirs: AGENTS_DIRS, ts: Date.now() });
 
 // Polling em vez de fs.watch: funciona igual no Windows, macOS e Linux, e aguenta a pasta ser criada depois.
 setInterval(() => refreshAgents(false), 2000);
@@ -201,7 +207,7 @@ function applyMeta(meta, ev) {
   meta.last = Math.max(meta.last, ev.ts);
   if (ev.cwd && !meta.cwd) meta.cwd = ev.cwd;
   if (ev.event === 'Stop' && !ev.agentId) { meta.status = 'done'; meta.end = ev.ts; }
-  else if (ev.event !== 'Usage') meta.status = 'running';
+  else if (!['Usage', 'Notification', 'SessionStart'].includes(ev.event)) meta.status = 'running';
   const who = ev.event === 'PreToolUse' && /^(Agent|Task)$/.test(ev.tool) ? ev.subagent : null;
   if (who && !meta.agents.includes(who)) meta.agents.push(who);
   if (ev.event === 'Usage') {
@@ -394,7 +400,8 @@ const server = http.createServer((req, res) => {
   }
 
   if (url === '/' || url === '/index.html') {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    // no-store: ao trocar o dashboard.html, basta recarregar a página para ver a versão nova.
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
     return fs.createReadStream(path.join(__dirname, 'dashboard.html')).pipe(res);
   }
 
