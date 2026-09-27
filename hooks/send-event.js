@@ -42,12 +42,21 @@ process.stdin.on('end', () => {
     background: ti.run_in_background === true || undefined,
     resultAgentId: tr.agentId || tr.agent_id,
     detail: cut(ti.description, 80) || cut(ti.file_path, 120) || cut(ti.command, 80) || cut(ti.pattern, 60),
+    // Avisos do Claude Code (ex.: esperando sua permissão).
+    notificationType: e.notification_type,
+    message: cut(e.message, 200),
     // Transcripts: o server lê para somar tokens e pegar o relatório final do subagente.
     transcriptPath: e.transcript_path,
     agentTranscriptPath: e.agent_transcript_path,
   };
   if (isAgentTool && e.hook_event_name === 'PreToolUse') ev.taskPrompt = cut(ti.prompt, MAX_TEXT);
-  if (isAgentTool && e.hook_event_name === 'PostToolUse') ev.result = cut(toolText(), MAX_TEXT);
+  if (isAgentTool && e.hook_event_name === 'PostToolUse') {
+    const text = toolText();
+    // O Claude Code pode rodar o subagente em segundo plano mesmo sem run_in_background:
+    // nesse caso a ferramenta volta na hora dizendo que o agente foi lançado, e o resultado chega depois.
+    if (tr.status === 'async_launched' || tr.isAsync === true || /async_launched|running in the background|launched in the background/i.test(text || '')) ev.async = true;
+    ev.result = cut(text, MAX_TEXT);
+  }
 
   // Retornos de subagentes em segundo plano chegam como "prompts" do usuário.
   // Eles são marcados como internos para o painel não confundir com um pedido novo.
@@ -56,6 +65,7 @@ process.stdin.on('end', () => {
     Object.assign(ev, {
       internal: 'task-notification',
       fromAgentId: tag(p, 'task-id'),
+      toolUseId: tag(p, 'tool-use-id'),
       status: tag(p, 'status'),
       prompt: cut(tag(p, 'summary'), 140),
       result: cut(tag(p, 'result'), MAX_TEXT),

@@ -1611,14 +1611,18 @@
           // Retorno de subagente em segundo plano: não é um pedido novo.
           const internal = ev.internal || (/^<(task-notification|agent-message)/.exec(ev.prompt || '') || [])[1];
           if (internal) {
-            const from = nodes.get(agentIds.get(ev.fromAgentId));
-            const who = from ? from.label : 'um subagente';
-            let c = calls.find((x) => x.agentId && x.agentId === ev.fromAgentId);
+            // Acha a chamada pelo agent_id; se o id da notificação não bater, pelo tool-use-id da chamada.
+            let c = calls.find((x) => x.agentId && x.agentId === ev.fromAgentId)
+              || (ev.toolUseId && calls.find((x) => x.toolUseId === ev.toolUseId));
             // O subagente terminou e entregou: se a ligação ainda estava em dúvida, fecha pela caixa dele.
             if (!c && ev.fromAgentId) { remember(ev.fromAgentId, { result: ev.result, stoppedAt: pending.get(ev.fromAgentId)?.stoppedAt || ts }); c = bindByBox(ev.fromAgentId); }
+            if (c && !c.agentId && ev.fromAgentId && agentBase.has(ev.fromAgentId)) bindAgent(c, ev.fromAgentId);
             if (c && ev.result && !c.result) c.result = ev.result;
+            const from = (c && nodes.get(c.to)) || nodes.get(agentIds.get(ev.fromAgentId));
+            const who = from ? from.label : 'um subagente';
+            // Tanto a notificação de fim quanto a entrega do relatório final encerram a chamada.
+            if (c) finishCall(c, /fail|error|kill/i.test(ev.status || '') ? 'error' : 'done', ts);
             if (internal === 'task-notification') {
-              if (c) finishCall(c, /fail|error|kill/i.test(ev.status || '') ? 'error' : 'done', ts);
               set(main(), 'running', `Lendo o retorno de ${who}`, ts);
               log(main(), `recebeu o retorno de ${who}${ev.prompt ? ': ' + ev.prompt : ''}`, ts, 'done');
             } else {
