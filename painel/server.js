@@ -272,6 +272,19 @@ function pruneRuns() {
   }
 }
 
+// Apaga todas as execuções (memória e disco). As sessões abertas continuam: o próximo evento abre uma execução nova.
+function clearHistory() {
+  const n = runs.size;
+  runs.clear();
+  current.clear();
+  let files = [];
+  try { files = fs.readdirSync(HISTORY_DIR).filter((f) => f.endsWith('.jsonl')); } catch { /* pasta não existe */ }
+  for (const f of files) { try { fs.unlinkSync(path.join(HISTORY_DIR, f)); } catch { /* em uso ou já apagado */ } }
+  broadcast({ event: 'HistoryCleared', ts: Date.now() });
+  console.log(`Histórico apagado: ${n} execução(ões)`);
+  return n;
+}
+
 function loadHistory() {
   try { fs.mkdirSync(HISTORY_DIR, { recursive: true }); } catch { return; }
   let files = [];
@@ -372,6 +385,12 @@ const server = http.createServer((req, res) => {
       res.end('ok');
     });
     return;
+  }
+
+  if (req.method === 'POST' && url === '/runs/limpar') {
+    // Mesmo cuidado do /event: só JSON, para outro site não disparar a limpeza por formulário.
+    if (!/^application\/json\b/i.test(req.headers['content-type'] || '')) { res.statusCode = 415; return res.end('use application/json'); }
+    return json({ apagadas: clearHistory() });
   }
 
   if (url === '/agents') return json({ root: ROOT, agents });

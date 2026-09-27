@@ -2,13 +2,14 @@
 
 Painel local que mostra, ao vivo, como os subagentes do [Claude Code](https://code.claude.com) trabalham juntos: quem chamou quem, quanto tempo cada chamada levou, quantos tokens gastou e o que foi entregue.
 
-- **Grafo dos agentes:** as caixinhas vêm de `.claude/agents/*.md` e atualizam sozinhas quando você cria ou edita um agente.
+- **Grafo dos agentes:** as caixinhas vêm de `.claude/agents/*.md` do projeto e de `~/.claude/agents` (agentes de usuário), e atualizam sozinhas quando você cria ou edita um agente.
 - **Conexões reais:** cada chamada entre agentes (inclusive subagente chamando subagente) vira uma linha com duração e tokens. Clique nela para ver a tarefa enviada e o retorno.
-- **Paralelismo:** se o orquestrador chama o mesmo agente várias vezes ao mesmo tempo, a caixinha e a conexão mostram "3 em paralelo" e os logs marcam cada instância (#1, #2, #3).
+- **Paralelismo:** se o orquestrador chama o mesmo agente várias vezes ao mesmo tempo, cada instância ganha sua própria caixa (`dev #1`, `dev #2`, `dev #3`), com conexão, tempo e logs próprios. Uma caixa fica tracejada (Preparado) até o subagente começar.
+- **Esperando você:** quando um agente para num pedido de permissão ou numa pergunta, a caixa fica amarela com um balão dizendo o que ele espera.
 - **Linha do tempo:** uma barra por chamada, empilhadas quando rodam juntas, para ver o que rodou em paralelo e onde a execução esperou.
 - **Logs por agente:** a lateral agrupa os eventos pelo agente que os executou.
 - **Tokens e custo estimado:** lidos dos transcripts do Claude Code e calculados pela tabela de preços da API.
-- **Sessões e histórico:** cada terminal é uma sessão e cada prompt é uma execução salva, que pode ser reaberta depois.
+- **Sessões e histórico:** cada terminal é uma sessão e cada prompt é uma execução salva, que pode ser reaberta depois. O botão **Limpar histórico** apaga todas.
 
 Não tem dependências: só Node.js 18 ou mais novo.
 
@@ -31,7 +32,9 @@ Não tem dependências: só Node.js 18 ou mais novo.
        "SubagentStop":       [{ "hooks": [{ "type": "command", "command": "node \"C:/caminho/painel/send-event.js\"", "timeout": 5 }] }],
        "PreToolUse":         [{ "matcher": "*", "hooks": [{ "type": "command", "command": "node \"C:/caminho/painel/send-event.js\"", "timeout": 5 }] }],
        "PostToolUse":        [{ "matcher": "*", "hooks": [{ "type": "command", "command": "node \"C:/caminho/painel/send-event.js\"", "timeout": 5 }] }],
-       "PostToolUseFailure": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "node \"C:/caminho/painel/send-event.js\"", "timeout": 5 }] }]
+       "PostToolUseFailure": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "node \"C:/caminho/painel/send-event.js\"", "timeout": 5 }] }],
+       "PermissionRequest":  [{ "matcher": "*", "hooks": [{ "type": "command", "command": "node \"C:/caminho/painel/send-event.js\"", "timeout": 5 }] }],
+       "Notification":       [{ "hooks": [{ "type": "command", "command": "node \"C:/caminho/painel/send-event.js\"", "timeout": 5 }] }]
      }
    }
    ```
@@ -64,7 +67,7 @@ O custo é uma estimativa pela tabela da API. Não considera o preço do cache d
 - O `POST /event` só aceita `Content-Type: application/json`.
 - O server só lê transcripts `.jsonl` dentro da pasta de dados do Claude Code (`~/.claude` ou `CLAUDE_CONFIG_DIR`).
 - O hook envia um resumo: nome da ferramenta, caminho do arquivo, o início do comando, a tarefa delegada e o retorno do subagente. Nunca envia o conteúdo dos arquivos.
-- O histórico fica em texto puro em `~/.squad-panel/historico`, fora do projeto. Se um comando seu tiver um token ou senha, os primeiros 80 caracteres dele vão parar lá. Apague a pasta quando quiser.
+- O histórico fica em texto puro em `~/.squad-panel/historico`, fora do projeto. Se um comando seu tiver um token ou senha, os primeiros 80 caracteres dele vão parar lá. Use o botão **Limpar histórico** ou apague a pasta quando quiser.
 - O hook nunca bloqueia o Claude Code: qualquer falha termina em silêncio.
 
 ## Arquivos

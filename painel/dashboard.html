@@ -134,6 +134,18 @@
       color: #fff;
     }
 
+    button.danger {
+      color: var(--err);
+      border-color: var(--err);
+      background: none;
+      font-size: 13px;
+      padding: 5px 10px;
+    }
+
+    button.danger:hover {
+      background: var(--err-soft);
+    }
+
     button.link {
       border: 0;
       background: none;
@@ -987,6 +999,7 @@
     <label>Sessão <select id="sessSel" aria-label="Sessão"></select></label>
     <label>Execução <select id="runSel" aria-label="Execução"></select></label>
     <span class="src" id="src"></span>
+    <button id="btnClear" class="danger" title="Apaga todas as execuções salvas">Limpar histórico</button>
   </div>
   <main>
     <div class="canvas" id="canvas">
@@ -1860,6 +1873,11 @@
           $('hint').textContent = `Nenhum agente encontrado em ${(ev.dirs || ['.claude/agents']).join(' nem em ')}. Confira a pasta passada para o server.js: ela precisa ser a raiz do projeto que tem .claude/agents.`;
           updateHint();
           return;
+        case 'HistoryCleared':
+          runsMeta.clear();
+          view.run = 'live';
+          refreshRuns();
+          return;
         case 'Session':
           if (ev.session) sessions.set(ev.session.id, ev.session);
           scheduleSelectors();
@@ -1878,6 +1896,18 @@
       if (view.loading) view.queue.push(ev);
       else apply(ev);
     }
+
+    $('btnClear').onclick = async () => {
+      const n = runsMeta.size;
+      if (!n) { alert('O histórico já está vazio.'); return; }
+      if (!confirm(`Apagar as ${n} execução(ões) salvas? Isso não pode ser desfeito.`)) return;
+      $('btnClear').disabled = true;
+      try {
+        const r = await fetch(base + '/runs/limpar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        if (!r.ok) throw new Error(r.status);
+      } catch { alert('Não consegui apagar o histórico. O server está rodando?'); }
+      $('btnClear').disabled = false;
+    };
 
     $('sessSel').onchange = () => { view.session = $('sessSel').value; view.run = 'live'; renderSelectors(); loadRun(targetRun()); };
     $('runSel').onchange = () => {
