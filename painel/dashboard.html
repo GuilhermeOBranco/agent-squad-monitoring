@@ -1,0 +1,1721 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Execução da squad</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --canvas: #EDF0F4;
+      --dot: #C9D0DA;
+      --node: #FFFFFF;
+      --ink: #1C2430;
+      --muted: #5E6B7C;
+      --line: #D5DBE3;
+      --idle: #A7B0BD;
+      --run: #2563EB;
+      --run-soft: #DCE7FD;
+      --done: #16A34A;
+      --done-soft: #DCF3E4;
+      --err: #DC2626;
+      --err-soft: #FBE1E1;
+      --bar: #F8F9FB;
+      font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --canvas: #151A21;
+        --dot: #2A323D;
+        --node: #1E252F;
+        --ink: #E6EAF0;
+        --muted: #97A3B4;
+        --line: #313A46;
+        --idle: #5C6776;
+        --run: #5B8DF0;
+        --run-soft: #1D2B45;
+        --done: #34C06A;
+        --done-soft: #16301F;
+        --err: #F06262;
+        --err-soft: #3A1C1C;
+        --bar: #1A2029;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      background: var(--canvas);
+      color: var(--ink);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px 16px;
+      padding: 10px 20px;
+      background: var(--bar);
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      font-size: 17px;
+      font-weight: 600;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+
+    .conn {
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .conn i {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--idle);
+    }
+
+    .conn[data-on="true"] i {
+      background: var(--done);
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    button,
+    select {
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 7px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--node);
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    select {
+      font-weight: 400;
+      font-size: 13px;
+      padding: 6px 8px;
+      max-width: 320px;
+    }
+
+    button.primary {
+      background: var(--run);
+      border-color: var(--run);
+      color: #fff;
+    }
+
+    button.link {
+      border: 0;
+      background: none;
+      padding: 2px 4px;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: default;
+    }
+
+    button:focus-visible,
+    select:focus-visible {
+      outline: 2px solid var(--run);
+      outline-offset: 2px;
+    }
+
+    .seg {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .seg button {
+      border: 0;
+      border-radius: 0;
+      font-size: 13px;
+      padding: 6px 12px;
+      background: var(--node);
+      color: var(--muted);
+    }
+
+    .seg button[aria-pressed="true"] {
+      background: var(--run-soft);
+      color: var(--run);
+    }
+
+    .subbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 20px;
+      font-size: 12.5px;
+      color: var(--muted);
+      background: var(--bar);
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+
+    .subbar .src {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .subbar label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+
+    .canvas {
+      flex: 1;
+      overflow: auto;
+      position: relative;
+      background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .stage {
+      position: relative;
+      margin: 0 auto;
+    }
+
+    .hint {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 40%;
+      text-align: center;
+      font-size: 14px;
+      color: var(--muted);
+      padding: 0 24px;
+    }
+
+    svg.edges {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .edge {
+      fill: none;
+      stroke: var(--idle);
+      stroke-width: 2;
+    }
+
+    .edge[data-s="running"] {
+      stroke: var(--run);
+      stroke-dasharray: 7 6;
+      animation: flow .7s linear infinite;
+    }
+
+    .edge[data-s="done"] {
+      stroke: var(--done);
+    }
+
+    .edge[data-s="error"] {
+      stroke: var(--err);
+    }
+
+    @keyframes flow {
+      to {
+        stroke-dashoffset: -13;
+      }
+    }
+
+    .elabel {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font: inherit;
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--node);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      z-index: 1;
+      cursor: pointer;
+    }
+
+    .elabel:hover {
+      box-shadow: 0 0 0 3px var(--run-soft);
+    }
+
+    .elabel[data-s="running"] {
+      color: var(--run);
+      border-color: var(--run);
+    }
+
+    .elabel[data-s="done"] {
+      color: var(--done);
+      border-color: var(--done);
+    }
+
+    .elabel[data-s="error"] {
+      color: var(--err);
+      border-color: var(--err);
+    }
+
+    .node {
+      position: absolute;
+      width: 240px;
+      height: 86px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 14px 0 12px;
+      background: var(--node);
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      transition: border-color .25s, box-shadow .25s, left .3s, top .3s;
+      cursor: pointer;
+      z-index: 2;
+    }
+
+    .node::before,
+    .node::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      margin-top: -5px;
+      border-radius: 50%;
+      background: var(--node);
+      border: 2px solid var(--idle);
+    }
+
+    .node::before {
+      left: -7px;
+    }
+
+    .node::after {
+      right: -7px;
+    }
+
+    .node[data-no-in]::before,
+    .node[data-no-out]::after {
+      display: none;
+    }
+
+    .badge {
+      flex: none;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: var(--canvas);
+      color: var(--idle);
+      transition: background .25s, color .25s;
+    }
+
+    .badge svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .txt {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .title {
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .title span:first-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .time {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      flex: none;
+    }
+
+    .detail {
+      font-size: 12.5px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .usage {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .usage:empty {
+      display: none;
+    }
+
+    .node[data-extra] .detail {
+      font-style: italic;
+    }
+
+    .node[data-s="running"] {
+      border-color: var(--run);
+      box-shadow: 0 0 0 4px var(--run-soft);
+    }
+
+    .node[data-s="running"] .badge {
+      background: var(--run-soft);
+      color: var(--run);
+    }
+
+    .node[data-s="running"] .badge svg {
+      animation: spin 1s linear infinite;
+    }
+
+    .node[data-s="done"] {
+      border-color: var(--done);
+    }
+
+    .node[data-s="done"] .badge {
+      background: var(--done-soft);
+      color: var(--done);
+    }
+
+    .node[data-s="error"] {
+      border-color: var(--err);
+    }
+
+    .node[data-s="error"] .badge {
+      background: var(--err-soft);
+      color: var(--err);
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      .edge[data-s="running"],
+      .node[data-s="running"] .badge svg {
+        animation: none;
+      }
+
+      .node {
+        transition: none;
+      }
+    }
+
+    /* Linha do tempo */
+    .timeline {
+      flex: 1;
+      overflow: auto;
+      padding: 20px 24px 32px;
+      background: var(--canvas);
+    }
+
+    .tl-empty {
+      color: var(--muted);
+      font-size: 14px;
+      padding: 40px 0;
+      text-align: center;
+    }
+
+    .tl-grid {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 0;
+      min-width: 560px;
+    }
+
+    .tl-axis {
+      position: relative;
+      height: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tl-axis span {
+      position: absolute;
+      bottom: 4px;
+      transform: translateX(-50%);
+      font-size: 11.5px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tl-name {
+      font-size: 13px;
+      font-weight: 600;
+      padding: 0 12px 0 0;
+      display: flex;
+      align-items: center;
+      min-height: 40px;
+      border-bottom: 1px solid var(--line);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tl-lane {
+      position: relative;
+      min-height: 40px;
+      border-bottom: 1px solid var(--line);
+      background-image: linear-gradient(to right, var(--line) 1px, transparent 1px);
+    }
+
+    .tl-bar {
+      position: absolute;
+      height: 22px;
+      border-radius: 5px;
+      font: inherit;
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 0 6px;
+      border: 1px solid var(--done);
+      background: var(--done-soft);
+      color: var(--done);
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      text-align: left;
+      min-width: 4px;
+      cursor: pointer;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tl-bar[data-s="running"] {
+      border-color: var(--run);
+      background: var(--run-soft);
+      color: var(--run);
+    }
+
+    .tl-bar[data-s="error"] {
+      border-color: var(--err);
+      background: var(--err-soft);
+      color: var(--err);
+    }
+
+    .tl-bar[data-main] {
+      cursor: default;
+    }
+
+    .tl-bar:hover:not([data-main]) {
+      box-shadow: 0 0 0 3px var(--run-soft);
+    }
+
+    .tl-tick {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      width: 2px;
+      border-radius: 1px;
+      background: var(--err);
+    }
+
+    aside {
+      width: 360px;
+      flex: none;
+      border-left: 1px solid var(--line);
+      background: var(--bar);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .aside-head {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 12px 12px 8px 16px;
+    }
+
+    aside h2 {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0;
+      flex: 1;
+    }
+
+    .ask {
+      margin: 0 12px 8px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: var(--node);
+      border: 1px solid var(--line);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+
+    .ask b {
+      display: block;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+    }
+
+    .stats div {
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+
+    .stats strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .groups {
+      overflow: auto;
+      flex: 1;
+      padding: 0 8px 16px;
+    }
+
+    details.group {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--node);
+      margin-bottom: 8px;
+    }
+
+    details.group.flash {
+      box-shadow: 0 0 0 3px var(--run-soft);
+    }
+
+    details.group summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    details.group summary::-webkit-details-marker {
+      display: none;
+    }
+
+    summary .chev {
+      width: 12px;
+      color: var(--muted);
+      transition: transform .15s;
+      flex: none;
+    }
+
+    details[open] summary .chev {
+      transform: rotate(90deg);
+    }
+
+    summary .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--idle);
+      flex: none;
+    }
+
+    summary .dot[data-s="running"] {
+      background: var(--run);
+    }
+
+    summary .dot[data-s="done"] {
+      background: var(--done);
+    }
+
+    summary .dot[data-s="error"] {
+      background: var(--err);
+    }
+
+    summary .name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    summary .count {
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    ol.log {
+      list-style: none;
+      margin: 0;
+      padding: 0 6px 6px;
+      max-height: 320px;
+      overflow: auto;
+    }
+
+    .log li {
+      font-size: 12.5px;
+      padding: 6px 4px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .log li+li {
+      border-top: 1px solid var(--line);
+    }
+
+    .log li[data-k="call"] span {
+      color: var(--run);
+    }
+
+    .log li[data-k="done"] span {
+      color: var(--done);
+    }
+
+    .log li[data-k="error"] span {
+      color: var(--err);
+    }
+
+    .log time {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      margin-right: 6px;
+    }
+
+    .empty {
+      font-size: 13px;
+      color: var(--muted);
+      padding: 4px 16px;
+      line-height: 1.5;
+    }
+
+    /* Detalhe da chamada */
+    dialog {
+      width: min(760px, calc(100vw - 32px));
+      max-height: calc(100vh - 64px);
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bar);
+      color: var(--ink);
+    }
+
+    dialog::backdrop {
+      background: rgb(0 0 0 / .45);
+    }
+
+    .dlg-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      background: var(--bar);
+    }
+
+    .dlg-head h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .dlg-body {
+      padding: 4px 18px 18px;
+    }
+
+    .call {
+      padding: 14px 0;
+    }
+
+    .call+.call {
+      border-top: 1px solid var(--line);
+    }
+
+    .call h4 {
+      margin: 0 0 8px;
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+
+    .facts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .facts div {
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+
+    .facts strong {
+      display: block;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .call h5 {
+      margin: 10px 0 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .call pre {
+      margin: 0;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: var(--node);
+      border: 1px solid var(--line);
+      font: 12.5px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      max-height: 260px;
+      overflow: auto;
+    }
+
+    .call pre.none {
+      font-family: inherit;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        flex-direction: column;
+      }
+
+      aside {
+        width: auto;
+        height: 42vh;
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      select {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Execução da squad</h1>
+    <span class="conn" id="conn" data-on="false"><i></i><span>Sem conexão com o servidor</span></span>
+    <span class="spacer"></span>
+    <span class="seg" role="group" aria-label="Visualização">
+      <button id="viewGraph" aria-pressed="true">Grafo</button>
+      <button id="viewTimeline" aria-pressed="false">Linha do tempo</button>
+    </span>
+    <button id="btnSim" class="primary">Simular execução</button>
+  </header>
+  <div class="subbar">
+    <label>Sessão <select id="sessSel" aria-label="Sessão"></select></label>
+    <label>Execução <select id="runSel" aria-label="Execução"></select></label>
+    <span class="src" id="src"></span>
+  </div>
+  <main>
+    <div class="canvas" id="canvas">
+      <div class="stage" id="stage">
+        <svg class="edges" id="edges" aria-hidden="true"></svg>
+        <div id="labels"></div>
+        <div id="nodes"></div>
+      </div>
+    </div>
+    <div class="timeline" id="timeline" hidden></div>
+    <aside>
+      <div class="aside-head">
+        <h2>Logs por agente</h2>
+        <button class="link" id="btnOpen">Expandir</button>
+        <button class="link" id="btnClose">Recolher</button>
+      </div>
+      <div class="ask" id="ask" hidden>
+        <b id="askLabel">Pedido</b><span id="askText"></span>
+        <div class="stats">
+          <div>Duração<strong id="stDur">–</strong></div>
+          <div>Tokens<strong id="stTok">–</strong></div>
+          <div>Custo estimado<strong id="stCost">–</strong></div>
+        </div>
+      </div>
+      <p class="empty" id="empty">Envie um prompt no Claude Code ou clique em Simular execução.</p>
+      <div class="groups" id="groups"></div>
+    </aside>
+  </main>
+  <dialog id="dlg" aria-labelledby="dlgTitle">
+    <div class="dlg-head">
+      <h3 id="dlgTitle"></h3><button id="dlgClose">Fechar</button>
+    </div>
+    <div class="dlg-body" id="dlgBody"></div>
+  </dialog>
+
+  <script>
+    // Os subagentes vêm do server.js, que lê .claude/agents/*.md (campos name e description).
+    // Agentes chamados que não estão na pasta (ex.: Explore, general-purpose) aparecem quando forem usados.
+    const W = 240, H = 86, GAPX = 110, GAPY = 22, PAD = 48;
+    const LABEL = { idle: 'Aguardando', running: 'Executando', done: 'Concluído', error: 'Com erro' };
+    const ICON = {
+      idle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>',
+      running: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 4a8 8 0 1 1-8 8"/></svg>',
+      done: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+      error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>',
+    };
+    const CHEV = '<svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 2.5L8 6l-3.5 3.5"/></svg>';
+
+    const $ = (id) => document.getElementById(id);
+    const nodes = new Map();      // id do nó -> estado do nó
+    const agentIds = new Map();   // agent_id do Claude Code -> id do nó
+    const groups = new Map();     // id do nó -> grupo de logs
+    let calls = [];               // chamadas entre agentes (as arestas do grafo)
+    let failures = [];            // falhas de ferramenta, para a linha do tempo
+    let config = [];              // agentes lidos de .claude/agents
+    let seq = 0;                  // ordem de aparecimento, para agentes fora da pasta
+    let mainUsage = null;         // tokens do orquestrador nesta execução
+
+    // ---------- Formatação ----------
+
+    const fmt = (ms) => (ms < 60000 ? (Math.max(0, ms) / 1000).toFixed(1) + 's' : Math.floor(ms / 60000) + 'min ' + Math.round((ms % 60000) / 1000) + 's');
+    const clock = (ts) => new Date(ts).toLocaleTimeString('pt-BR');
+    const tokTotal = (u) => (u ? (u.input || 0) + (u.output || 0) + (u.cacheRead || 0) + (u.cacheWrite || 0) : 0);
+    const fmtTok = (n) => (n < 1000 ? String(n) : n < 1e6 ? (n / 1e3).toFixed(n < 1e4 ? 1 : 0).replace('.', ',') + 'k' : (n / 1e6).toFixed(1).replace('.', ',') + 'M');
+    const fmtCost = (c) => c.toLocaleString('pt-BR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: c < 0.1 ? 3 : 2 });
+    function fmtUsage(u, short) {
+      if (!u || !tokTotal(u)) return '';
+      const cost = u.priced === false || !u.cost ? '' : ' · ' + fmtCost(u.cost);
+      return fmtTok(tokTotal(u)) + (short ? ' tok' : ' tokens') + cost;
+    }
+    const usageTip = (u) => (u ? `Entrada ${fmtTok(u.input)} · Saída ${fmtTok(u.output)} · Cache lido ${fmtTok(u.cacheRead)} · Cache gravado ${fmtTok(u.cacheWrite)}${u.models && u.models.length ? '\nModelo: ' + u.models.join(', ') : ''}` : '');
+    function sumUsage(list) {
+      const t = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, priced: true, models: [] };
+      for (const u of list) {
+        if (!u) continue;
+        for (const k of ['input', 'output', 'cacheRead', 'cacheWrite', 'cost']) t[k] += u[k] || 0;
+        if (u.priced === false) t.priced = false;
+        for (const m of u.models || []) if (!t.models.includes(m)) t.models.push(m);
+      }
+      return t;
+    }
+
+    // Relógio da tela: ao vivo usa a hora atual; uma execução antiga fica parada no último evento.
+    function now() {
+      if (view.shown === 'sim' || !view.meta || view.meta.live) return Date.now();
+      return view.meta.last || Date.now();
+    }
+
+    // ---------- Nós ----------
+
+    function addNode(id, label, role, kind, extra) {
+      const el = document.createElement('div');
+      el.className = 'node';
+      el.tabIndex = 0;
+      if (kind === 'prompt') el.dataset.noIn = '';
+      if (extra) el.dataset.extra = '';
+      el.innerHTML = `<div class="badge"></div><div class="txt"><div class="title"><span></span><span class="time"></span></div><div class="detail"></div><div class="usage"></div></div>`;
+      el.title = role;
+      $('nodes').appendChild(el);
+      const n = {
+        id, label, role, kind, extra, el, col: kind === 'prompt' ? 0 : kind === 'main' ? 1 : 2,
+        order: seq++, status: 'idle', detail: role, start: 0, end: 0, running: 0
+      };
+      el.querySelector('.title span').textContent = label;
+      el.onclick = el.onkeydown = (e) => { if (e.type === 'click' || e.key === 'Enter') focusGroup(n.id); };
+      nodes.set(id, n);
+      paint(n);
+      return n;
+    }
+
+    function ensureAgent(id) {
+      if (!id) return null;
+      if (nodes.has(id)) return nodes.get(id);
+      const n = addNode(id, id, 'Fora de .claude/agents', 'agent', true);
+      layout();
+      return n;
+    }
+
+    // Sincroniza com .claude/agents: cria, atualiza e remove caixinhas sem apagar as que estão em uso.
+    function applyConfig(list) {
+      config = list;
+      const ids = new Set(list.map((a) => a.id));
+      list.forEach((a, i) => {
+        const n = nodes.get(a.id) || addNode(a.id, a.id, a.description || 'Subagente', 'agent');
+        n.role = a.description || 'Subagente';
+        n.extra = false; delete n.el.dataset.extra;
+        n.order = i - 1e6;
+        n.el.title = n.role;
+        if (n.status === 'idle') n.detail = n.role;
+        paint(n);
+      });
+      for (const n of [...nodes.values()]) {
+        if (n.kind === 'agent' && !n.extra && !ids.has(n.id)) {
+          if (calls.some((c) => c.to === n.id || c.from === n.id)) { n.extra = true; n.role = 'Fora de .claude/agents'; n.el.dataset.extra = ''; }
+          else { n.el.remove(); nodes.delete(n.id); }
+        }
+      }
+      layout();
+    }
+
+    function layout() {
+      const cols = new Map();
+      for (const n of nodes.values()) {
+        if (!cols.has(n.col)) cols.set(n.col, []);
+        cols.get(n.col).push(n);
+      }
+      const heightOf = (list) => list.length * (H + GAPY) - GAPY;
+      const tallest = Math.max(H, ...[...cols.values()].map(heightOf));
+      const maxCol = Math.max(2, ...cols.keys());
+      for (const [c, list] of cols) {
+        list.sort((a, b) => a.order - b.order);
+        const top = PAD + (tallest - heightOf(list)) / 2;
+        list.forEach((n, i) => place(n, PAD + c * (W + GAPX), top + i * (H + GAPY)));
+      }
+      $('stage').style.width = PAD * 2 + (maxCol + 1) * W + maxCol * GAPX + 'px';
+      $('stage').style.height = tallest + PAD * 2 + 'px';
+      fit();
+      drawEdges();
+    }
+    // Reduz o desenho para caber na largura da tela quando a cadeia de chamadas fica longa.
+    function fit() {
+      const avail = $('canvas').clientWidth;
+      if (avail) $('stage').style.zoom = Math.max(0.55, Math.min(1, avail / parseFloat($('stage').style.width)));
+    }
+    addEventListener('resize', fit);
+    function place(n, x, y) { n.x = x; n.y = y; n.el.style.left = x + 'px'; n.el.style.top = y + 'px'; }
+
+    // Quem é chamado por um subagente vai para a coluna seguinte à de quem chamou.
+    function pushRight(child, parent) {
+      if (child.kind !== 'agent' || child === parent) return;
+      const want = Math.min(parent.col + 1, 6);
+      if (child.col < want) { child.col = want; layout(); }
+    }
+
+    function nodeUsage(n) {
+      if (n.kind === 'main') return mainUsage;
+      const list = calls.filter((c) => c.to === n.id && c.usage).map((c) => c.usage);
+      return list.length ? sumUsage(list) : null;
+    }
+
+    function paint(n) {
+      n.el.dataset.s = n.status;
+      n.el.querySelector('.badge').innerHTML = ICON[n.status];
+      n.el.querySelector('.detail').textContent = n.detail || LABEL[n.status];
+      const u = nodeUsage(n);
+      const ue = n.el.querySelector('.usage');
+      ue.textContent = fmtUsage(u);
+      ue.title = usageTip(u);
+      n.el.setAttribute('aria-label', `${n.label}: ${LABEL[n.status]}`);
+      tick(n);
+      const g = groups.get(n.id);
+      if (g) g.dot.dataset.s = n.status;
+    }
+    function tick(n) {
+      n.el.querySelector('.time').textContent = n.start ? fmt((n.end || now()) - n.start) : '';
+    }
+
+    function set(n, status, detail, ts = Date.now()) {
+      if (!n) return;
+      if (status === 'running' && n.status !== 'running') { n.start = ts; n.end = 0; }
+      if ((status === 'done' || status === 'error') && n.start && !n.end) n.end = ts;
+      n.status = status;
+      if (detail !== undefined) n.detail = detail;
+      paint(n);
+    }
+
+    // ---------- Chamadas (arestas) ----------
+
+    function edgeGroups() {
+      const edges = new Map();
+      for (const c of calls) {
+        const k = c.from + '>' + c.to;
+        if (!edges.has(k)) edges.set(k, []);
+        edges.get(k).push(c);
+      }
+      return edges;
+    }
+
+    function drawEdges() {
+      const pm = nodes.get('prompt'), mn = nodes.get('main');
+      const paths = [`<path class="edge" data-s="${mn.status === 'idle' ? 'idle' : 'done'}" d="${geometry(pm, mn).d}"/>`];
+      const labels = [];
+      const withOut = new Set(['prompt', 'main']);
+      for (const list of edgeGroups().values()) {
+        const s = nodes.get(list[0].from), t = nodes.get(list[0].to);
+        if (!s || !t) continue;
+        withOut.add(s.id);
+        const last = list[list.length - 1];
+        const st = list.some((c) => !c.end) ? 'running' : last.status;
+        const { d, mx, my } = geometry(s, t);
+        paths.push(`<path class="edge" data-s="${st}" d="${d}"/>`);
+        const live = list.find((c) => !c.end) || last;
+        const u = sumUsage(list.map((c) => c.usage));
+        const text = (list.length > 1 ? `${list.length}× · ` : '') + fmt((live.end || now()) - live.start) + (tokTotal(u) ? ' · ' + fmtTok(tokTotal(u)) + ' tok' : '');
+        labels.push({ mx, my, st, text, list, tip: `${s.label} → ${t.label}: clique para ver a tarefa e o retorno` });
+      }
+      $('edges').innerHTML = paths.join('');
+      $('labels').innerHTML = '';
+      for (const l of labels) {
+        const el = document.createElement('button');
+        el.className = 'elabel';
+        el.dataset.s = l.st;
+        el.style.left = l.mx + 'px'; el.style.top = l.my + 'px';
+        el.textContent = l.text;
+        el.title = l.tip;
+        el.onclick = () => openCalls(l.list);
+        $('labels').appendChild(el);
+      }
+      for (const n of nodes.values()) {
+        if (n.kind === 'agent') { if (withOut.has(n.id)) delete n.el.dataset.noOut; else n.el.dataset.noOut = ''; }
+      }
+      if (view.mode === 'timeline') renderTimeline();
+      renderStats();
+    }
+    function geometry(s, t) {
+      const x1 = s.x + W + 5, y1 = s.y + H / 2, x2 = t.x - 5, y2 = t.y + H / 2;
+      if (x2 > x1) {
+        const c = (x2 - x1) / 2;
+        return { d: `M${x1} ${y1} C${x1 + c} ${y1}, ${x2 - c} ${y2}, ${x2} ${y2}`, mx: (x1 + x2) / 2, my: (y1 + y2) / 2 };
+      }
+      // Destino à esquerda ou na mesma coluna: contorna por baixo.
+      const low = Math.max(s.y, t.y) + H + GAPY / 2 + 6;
+      return { d: `M${x1} ${y1} C${x1 + 60} ${y1}, ${x1 + 60} ${low}, ${x1} ${low} L${x2} ${low} C${x2 - 60} ${low}, ${x2 - 60} ${y2}, ${x2} ${y2}`, mx: (x1 + x2) / 2, my: low };
+    }
+
+    setInterval(() => {
+      nodes.forEach((n) => n.status === 'running' && tick(n));
+      if (calls.some((c) => !c.end) || nodes.get('main').status === 'running') drawEdges();
+    }, 250);
+
+    function startCall(ev, from, to) {
+      const c = {
+        from: from.id, to: to.id, start: ev.ts, end: 0, status: 'running', toolUseId: ev.toolUseId,
+        background: !!ev.background, agentId: null, detail: ev.detail || '', taskPrompt: ev.taskPrompt || '', result: '', usage: null
+      };
+      calls.push(c);
+      pushRight(to, from);
+      to.running++;
+      set(to, 'running', ev.detail || 'Iniciando', ev.ts);
+      drawEdges();
+      return c;
+    }
+
+    function finishCall(c, status, ts) {
+      if (!c || c.end) return;
+      c.end = ts; c.status = status;
+      const to = nodes.get(c.to), from = nodes.get(c.from);
+      const took = fmt(c.end - c.start);
+      to.running = Math.max(0, to.running - 1);
+      if (!to.running) set(to, status, status === 'error' ? `Falhou após ${took}` : `Concluído em ${took}`, ts);
+      log(to, status === 'error' ? `falhou após ${took}` : `concluiu em ${took} e devolveu para ${from.label}`, ts, status);
+      if (from && from.status === 'running' && !calls.some((x) => x.from === from.id && !x.end)) {
+        from.detail = from.id === 'main' ? 'Consolidando resultados' : 'Retomando a tarefa';
+        paint(from);
+      }
+      drawEdges();
+    }
+
+    const openCallList = () => calls.filter((c) => !c.end);
+
+    // ---------- Detalhe da chamada ----------
+
+    function openCalls(list) {
+      const s = nodes.get(list[0].from), t = nodes.get(list[0].to);
+      $('dlgTitle').textContent = `${s ? s.label : list[0].from} → ${t ? t.label : list[0].to}`;
+      $('dlgBody').replaceChildren(...list.map((c) => {
+        const i = calls.filter((x) => x.from === c.from && x.to === c.to).indexOf(c);
+        const el = document.createElement('section');
+        el.className = 'call';
+        const status = c.end ? (c.status === 'error' ? 'Falhou' : 'Concluída') : 'Em andamento';
+        el.innerHTML = `<h4></h4><div class="facts">
+        <div>Início<strong></strong></div><div>Duração<strong></strong></div><div>Situação<strong></strong></div>
+        <div>Tokens<strong></strong></div><div>Custo estimado<strong></strong></div></div>
+      <h5>Tarefa enviada</h5><pre></pre><h5>Resultado devolvido</h5><pre></pre>`;
+        el.querySelector('h4').textContent = `${i + 1}ª chamada${c.detail ? ': ' + c.detail : ''}${c.background ? ' (segundo plano)' : ''}`;
+        const facts = el.querySelectorAll('.facts strong');
+        facts[0].textContent = clock(c.start);
+        facts[1].textContent = fmt((c.end || now()) - c.start);
+        facts[2].textContent = status;
+        facts[3].textContent = c.usage ? fmtTok(tokTotal(c.usage)) : '–';
+        facts[3].title = usageTip(c.usage);
+        facts[4].textContent = c.usage && c.usage.priced !== false && c.usage.cost ? fmtCost(c.usage.cost) : '–';
+        const [task, result] = el.querySelectorAll('pre');
+        fillPre(task, c.taskPrompt || c.detail, 'O hook não enviou o texto da tarefa.');
+        fillPre(result, c.result, c.end ? 'Sem texto de retorno registrado.' : 'Ainda sem retorno.');
+        return el;
+      }));
+      if (!$('dlg').open) $('dlg').showModal();
+    }
+    function fillPre(el, text, fallback) {
+      el.textContent = text || fallback;
+      el.classList.toggle('none', !text);
+    }
+    $('dlgClose').onclick = () => $('dlg').close();
+    $('dlg').onclick = (e) => { if (e.target === $('dlg')) $('dlg').close(); };
+
+    // ---------- Linha do tempo ----------
+
+    function renderTimeline() {
+      const box = $('timeline');
+      const m = nodes.get('main');
+      const starts = calls.map((c) => c.start).concat(m.start ? [m.start] : []);
+      if (!starts.length) { box.innerHTML = '<p class="tl-empty">A linha do tempo aparece quando houver uma execução.</p>'; return; }
+      const t0 = Math.min(...starts);
+      const t1 = Math.max(t0 + 1000, m.end || 0, ...calls.map((c) => c.end || now()), m.status === 'running' ? now() : 0);
+      const span = t1 - t0;
+      const pct = (t) => ((t - t0) / span) * 100;
+      const rows = [m, ...[...nodes.values()].filter((n) => n.kind === 'agent' && calls.some((c) => c.to === n.id)).sort((a, b) => rank(a) - rank(b))];
+
+      // Marcas do eixo em passos "redondos" (1s, 2s, 5s, 10s, 30s, 1min...).
+      const step = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600].map((s) => s * 1000).find((s) => span / s <= 8) || 1200000;
+      const ticks = [];
+      for (let t = 0; t <= span; t += step) ticks.push(t);
+
+      const grid = document.createElement('div');
+      grid.className = 'tl-grid';
+      const axis = document.createElement('div');
+      axis.className = 'tl-axis';
+      axis.innerHTML = ticks.map((t) => `<span style="left:${(t / span) * 100}%">${fmt(t)}</span>`).join('');
+      grid.append(document.createElement('div'), axis);
+      const bg = `background-size: ${(step / span) * 100}% 100%`;
+
+      for (const n of rows) {
+        const name = document.createElement('div');
+        name.className = 'tl-name';
+        name.textContent = n.label;
+        const lane = document.createElement('div');
+        lane.className = 'tl-lane';
+        lane.style.cssText = bg;
+        const bars = n.kind === 'main'
+          ? (m.start ? [{ start: m.start, end: m.end, status: m.status === 'running' ? 'running' : 'done', main: true, usage: mainUsage }] : [])
+          : calls.filter((c) => c.to === n.id);
+        // Chamadas simultâneas do mesmo agente ficam em faixas empilhadas.
+        const tracks = [];
+        for (const b of bars) {
+          const end = b.end || now();
+          let k = tracks.findIndex((t) => t <= b.start);
+          if (k === -1) { k = tracks.length; tracks.push(0); }
+          tracks[k] = end;
+          const el = document.createElement('button');
+          el.className = 'tl-bar';
+          el.dataset.s = b.end ? b.status : 'running';
+          el.style.left = pct(b.start) + '%';
+          el.style.width = Math.max(0.4, pct(end) - pct(b.start)) + '%';
+          el.style.top = 9 + k * 26 + 'px';
+          el.textContent = fmt(end - b.start) + (b.usage ? ' · ' + fmtTok(tokTotal(b.usage)) + ' tok' : '');
+          if (b.main) { el.dataset.main = ''; el.title = `Orquestrador: ${fmt(end - b.start)}`; el.tabIndex = -1; }
+          else {
+            const from = nodes.get(b.from);
+            el.title = `${from ? from.label : b.from} → ${n.label}${b.detail ? ': ' + b.detail : ''}\n${fmt(end - b.start)}${b.usage ? ' · ' + fmtUsage(b.usage) : ''}`;
+            el.onclick = () => openCalls([b]);
+          }
+          lane.appendChild(el);
+        }
+        for (const f of failures.filter((x) => x.node === n.id)) {
+          const tk = document.createElement('i');
+          tk.className = 'tl-tick';
+          tk.style.left = pct(f.ts) + '%';
+          tk.title = `Falha em ${f.tool} às ${clock(f.ts)}`;
+          lane.appendChild(tk);
+        }
+        lane.style.minHeight = Math.max(40, 18 + tracks.length * 26) + 'px';
+        name.style.minHeight = lane.style.minHeight;
+        grid.append(name, lane);
+      }
+      box.replaceChildren(grid);
+    }
+
+    // ---------- Logs agrupados por agente ----------
+
+    function groupOf(n) {
+      if (groups.has(n.id)) return groups.get(n.id);
+      const el = document.createElement('details');
+      el.className = 'group';
+      el.open = true;
+      el.innerHTML = `<summary>${CHEV}<i class="dot"></i><span class="name"></span><span class="count"></span></summary><ol class="log"></ol>`;
+      el.querySelector('.name').textContent = n.label;
+      const g = { el, dot: el.querySelector('.dot'), count: el.querySelector('.count'), list: el.querySelector('ol'), n: 0, node: n };
+      groups.set(n.id, g);
+      g.dot.dataset.s = n.status;
+      // Orquestrador primeiro; depois a ordem das caixinhas.
+      const all = [...groups.values()].sort((a, b) => rank(a.node) - rank(b.node));
+      $('groups').replaceChildren(...all.map((x) => x.el));
+      return g;
+    }
+    const rank = (n) => (n.kind === 'main' ? -Infinity : n.col * 1e7 + n.order);
+
+    function log(n, text, ts = Date.now(), kind) {
+      if (!n) return;
+      $('empty').hidden = true;
+      const g = groupOf(n);
+      const li = document.createElement('li');
+      if (kind) li.dataset.k = kind;
+      li.innerHTML = '<time></time><span></span>';
+      li.querySelector('time').textContent = clock(ts);
+      li.querySelector('span').textContent = text;
+      g.list.prepend(li);
+      while (g.list.children.length > 300) g.list.lastChild.remove();
+      g.n++;
+      g.count.textContent = g.n === 1 ? '1 evento' : `${g.n} eventos`;
+    }
+
+    function focusGroup(id) {
+      const g = groups.get(id);
+      if (!g) return;
+      g.el.open = true;
+      g.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      g.el.classList.add('flash');
+      setTimeout(() => g.el.classList.remove('flash'), 900);
+    }
+
+    function renderStats() {
+      const m = nodes.get('main');
+      if ($('ask').hidden) return;
+      $('stDur').textContent = m.start ? fmt((m.end || now()) - m.start) : '–';
+      const u = sumUsage([mainUsage, ...calls.map((c) => c.usage)]);
+      $('stTok').textContent = tokTotal(u) ? fmtTok(tokTotal(u)) : '–';
+      $('stTok').title = usageTip(u);
+      $('stCost').textContent = tokTotal(u) && u.cost ? fmtCost(u.cost) + (u.priced ? '' : '+') : '–';
+    }
+
+    // ---------- Execução ----------
+
+    function clearRun() {
+      calls = [];
+      failures = [];
+      mainUsage = null;
+      agentIds.clear();
+      groups.clear();
+      $('groups').innerHTML = '';
+      $('empty').hidden = false;
+      $('ask').hidden = true;
+      for (const n of [...nodes.values()]) {
+        if (n.extra) { n.el.remove(); nodes.delete(n.id); continue; }
+        n.start = n.end = 0; n.running = 0; n.status = 'idle'; n.detail = n.role;
+        if (n.kind === 'agent') n.col = 2;
+        paint(n);
+      }
+      layout();
+    }
+
+    const isAgentTool = (t) => t === 'Task' || t === 'Agent';
+    const main = () => nodes.get('main');
+    function ownerOf(ev) {
+      if (!ev.agentId) return main();
+      return nodes.get(agentIds.get(ev.agentId)) || (ev.agentType ? ensureAgent(ev.agentType) : main());
+    }
+    function findCall(ev, to) {
+      return (ev.toolUseId && calls.find((c) => c.toolUseId === ev.toolUseId))
+        || openCallList().find((c) => c.to === (to && to.id) && !c.background);
+    }
+    function showAsk(text, label) {
+      $('ask').hidden = false;
+      $('askLabel').textContent = label || 'Pedido';
+      $('askText').textContent = text;
+      $('empty').hidden = true;
+      renderStats();
+    }
+
+    function handle(ev) {
+      const ts = ev.ts || (ev.ts = Date.now());
+      switch (ev.event) {
+        case 'UserPromptSubmit': {
+          // Retorno de subagente em segundo plano: não é um pedido novo.
+          const internal = ev.internal || (/^<(task-notification|agent-message)/.exec(ev.prompt || '') || [])[1];
+          if (internal) {
+            const from = nodes.get(agentIds.get(ev.fromAgentId));
+            const who = from ? from.label : 'um subagente';
+            const c = calls.find((x) => x.agentId && x.agentId === ev.fromAgentId);
+            if (c && ev.result && !c.result) c.result = ev.result;
+            if (internal === 'task-notification') {
+              if (c) finishCall(c, /fail|error|kill/i.test(ev.status || '') ? 'error' : 'done', ts);
+              set(main(), 'running', `Lendo o retorno de ${who}`, ts);
+              log(main(), `recebeu o retorno de ${who}${ev.prompt ? ': ' + ev.prompt : ''}`, ts, 'done');
+            } else {
+              log(from || main(), 'entregou o relatório final ao Orquestrador', ts);
+            }
+            break;
+          }
+          clearRun();
+          set(nodes.get('prompt'), 'done', ev.prompt || 'Prompt recebido', ts);
+          set(main(), 'running', 'Planejando as tarefas', ts);
+          showAsk(ev.prompt || 'Prompt enviado');
+          drawEdges();
+          break;
+        }
+
+        case 'PreToolUse': {
+          const owner = ownerOf(ev);
+          if (isAgentTool(ev.tool)) {
+            const to = ensureAgent(ev.subagent || 'general-purpose');
+            startCall(ev, owner, to);
+            set(owner, 'running', `Aguardando ${to.label}`, ts);
+            log(owner, `chamou ${to.label}${ev.background ? ' em segundo plano' : ''}${ev.detail ? ': ' + ev.detail : ''}`, ts, 'call');
+            log(to, `recebeu tarefa de ${owner.label}${ev.detail ? ': ' + ev.detail : ''}`, ts, 'call');
+          } else {
+            const text = ev.detail ? `${ev.tool}: ${ev.detail}` : ev.tool;
+            if (owner.status !== 'running') set(owner, 'running', text, ts);
+            else { owner.detail = text; paint(owner); }
+            log(owner, text, ts);
+          }
+          break;
+        }
+
+        case 'SubagentStart': {
+          const n = ensureAgent(ev.agentType);
+          if (!n) break;
+          if (ev.agentId) agentIds.set(ev.agentId, n.id);
+          let c = openCallList().find((x) => x.to === n.id && !x.agentId);
+          if (!c) c = startCall(ev, main(), n); // chamada sem PreToolUse (hook ausente)
+          c.agentId = ev.agentId;
+          break;
+        }
+
+        case 'SubagentStop': {
+          const c = calls.find((x) => x.agentId && x.agentId === ev.agentId && !x.end)
+            || openCallList().find((x) => x.to === ev.agentType);
+          finishCall(c, 'done', ts);
+          break;
+        }
+
+        case 'PostToolUse':
+          if (isAgentTool(ev.tool)) {
+            const c = findCall(ev, nodes.get(ev.subagent));
+            if (!c) break;
+            if (ev.resultAgentId && !c.agentId) { c.agentId = ev.resultAgentId; agentIds.set(ev.resultAgentId, c.to); }
+            // Em segundo plano, o retorno imediato é só "tarefa iniciada"; o resultado vem depois.
+            if (ev.result && !c.background) c.result = ev.result;
+            if (!c.background) finishCall(c, 'done', ts);
+          }
+          break;
+
+        case 'PostToolUseFailure': {
+          const owner = ownerOf(ev);
+          if (isAgentTool(ev.tool)) {
+            const c = findCall(ev, nodes.get(ev.subagent));
+            if (c) finishCall(c, 'error', ts);
+          } else {
+            owner.detail = `Falha em ${ev.tool}, tentando de novo`;
+            paint(owner);
+            failures.push({ node: owner.id, tool: ev.tool, ts });
+            log(owner, `falha em ${ev.tool}`, ts, 'error');
+            if (view.mode === 'timeline') renderTimeline();
+          }
+          break;
+        }
+
+        case 'Usage': {
+          // Tokens lidos do transcript pelo server.
+          if (ev.main) { mainUsage = ev.usage; paint(main()); renderStats(); break; }
+          const c = calls.find((x) => (ev.agentId && x.agentId === ev.agentId) || (ev.toolUseId && x.toolUseId === ev.toolUseId));
+          if (!c) break;
+          c.usage = ev.usage;
+          if (ev.result && !c.result) c.result = ev.result;
+          paint(nodes.get(c.to));
+          drawEdges();
+          break;
+        }
+
+        case 'Stop': {
+          if (ev.agentId) break;
+          const m = main();
+          if (m.status !== 'running') break;
+          const bg = openCallList().filter((c) => c.from === 'main').length;
+          if (bg) { m.detail = `Aguardando ${bg} subagente(s) em segundo plano`; paint(m); break; }
+          set(m, 'done', 'Entrega concluída', ts);
+          log(m, `finalizou a execução em ${fmt(m.end - m.start)}`, ts, 'done');
+          drawEdges();
+          break;
+        }
+      }
+    }
+
+    // ---------- Sessões, execuções e histórico ----------
+
+    const base = location.protocol.startsWith('http') ? '' : 'http://localhost:4000';
+    const runsMeta = new Map();   // id -> resumo da execução (vem do server)
+    const sessions = new Map();   // id -> { id, cwd }
+    const view = { mode: 'graph', session: '', run: 'live', shown: null, meta: null, lastSeq: -1, loading: null, queue: [] };
+
+    const shortSession = (id) => (id || '').slice(0, 6);
+    const folder = (cwd) => (cwd || '').split(/[\\/]/).filter(Boolean).pop() || '';
+    const sessionLabel = (id) => { const s = sessions.get(id); const f = s && folder(s.cwd); return (f ? f + ' · ' : '') + shortSession(id); };
+    function runLabel(m) {
+      const d = new Date(m.start);
+      const when = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const dur = fmt((m.status === 'done' ? m.end : m.last) - m.start);
+      const cost = m.usage && m.usage.cost ? ' · ' + fmtCost(m.usage.cost) : '';
+      const prompt = (m.prompt || 'Execução em andamento').replace(/\s+/g, ' ');
+      return `${m.live && m.status !== 'done' ? '● ' : ''}${when} · ${dur}${cost} · ${prompt.length > 42 ? prompt.slice(0, 42) + '…' : prompt}`;
+    }
+
+    function renderSelectors() {
+      for (const m of runsMeta.values()) if (!sessions.has(m.session)) sessions.set(m.session, { id: m.session, cwd: m.cwd });
+      const lastOf = (id) => Math.max(0, ...[...runsMeta.values()].filter((m) => m.session === id).map((m) => m.last));
+      const sess = [...sessions.keys()].sort((a, b) => lastOf(b) - lastOf(a));
+      $('sessSel').replaceChildren(new Option('Todas (segue a mais recente)', ''), ...sess.map((id) => new Option(sessionLabel(id), id)));
+      $('sessSel').value = sessions.has(view.session) ? view.session : '';
+
+      const list = [...runsMeta.values()].filter((m) => !view.session || m.session === view.session).sort((a, b) => b.start - a.start);
+      const opts = [new Option('Ao vivo (mais recente)', 'live'), ...list.map((m) => new Option((view.session ? '' : sessionLabel(m.session) + ' · ') + runLabel(m), m.id))];
+      if (view.shown === 'sim') opts.push(new Option('Simulação', 'sim'));
+      $('runSel').replaceChildren(...opts);
+      $('runSel').value = view.shown === 'sim' ? 'sim' : view.run;
+    }
+
+    // Reconstruir as opções fecha um <select> aberto; por isso agrupa as atualizações e espera o usuário.
+    let selTimer = 0;
+    function scheduleSelectors() {
+      if (selTimer) return;
+      selTimer = setTimeout(function again() {
+        if ([$('sessSel'), $('runSel')].includes(document.activeElement)) { selTimer = setTimeout(again, 1000); return; }
+        selTimer = 0;
+        renderSelectors();
+      }, 800);
+    }
+
+    function targetRun() {
+      if (view.run !== 'live') return view.run;
+      const list = [...runsMeta.values()].filter((m) => !view.session || m.session === view.session);
+      list.sort((a, b) => b.start - a.start);
+      return list.length ? list[0].id : null;
+    }
+
+    async function loadRun(id) {
+      stopSim();
+      clearRun();
+      view.shown = id; view.meta = runsMeta.get(id) || null; view.lastSeq = -1; view.queue = [];
+      renderSelectors();
+      if (!id) return;
+      const token = view.loading = Symbol(id);
+      let data;
+      try { data = await (await fetch(`${base}/runs/${encodeURIComponent(id)}`)).json(); } catch { data = null; }
+      if (view.loading !== token) return;
+      view.loading = null;
+      const events = (data && data.events) || [];
+      for (const ev of [...events, ...view.queue].sort((a, b) => a.seq - b.seq)) apply(ev);
+      view.queue = [];
+      if (view.meta && !view.meta.prompt && $('ask').hidden) showAsk('Execução retomada (o prompt começou antes do painel abrir).', 'Execução');
+      drawEdges();
+    }
+    function apply(ev) {
+      if (ev.seq <= view.lastSeq) return;
+      view.lastSeq = ev.seq;
+      handle(ev);
+    }
+
+    async function refreshRuns() {
+      let data;
+      try { data = await (await fetch(base + '/runs')).json(); } catch { return; }
+      runsMeta.clear();
+      for (const m of data.runs || []) runsMeta.set(m.id, m);
+      for (const s of data.sessions || []) sessions.set(s.id, s);
+      renderSelectors();
+      loadRun(targetRun());
+    }
+
+    function onServerEvent(ev) {
+      switch (ev.event) {
+        case 'Hello': refreshRuns(); return;
+        case 'AgentsConfig':
+          applyConfig(ev.agents || []);
+          $('src').textContent = `${(ev.agents || []).length} agente(s) em ${ev.root ? ev.root.replace(/[\\/]$/, '') + '/.claude/agents' : '.claude/agents'}`;
+          $('src').title = $('src').textContent;
+          $('hint').hidden = (ev.agents || []).length > 0;
+          return;
+        case 'Session':
+          if (ev.session) sessions.set(ev.session.id, ev.session);
+          scheduleSelectors();
+          return;
+        case 'RunMeta': {
+          runsMeta.set(ev.run.id, ev.run);
+          if (view.shown === ev.run.id) view.meta = ev.run;
+          if (view.shown === 'sim') { scheduleSelectors(); return; }
+          const target = targetRun();
+          if (target !== view.shown) loadRun(target);
+          else scheduleSelectors();
+          return;
+        }
+      }
+      if (!ev.runId || ev.runId !== view.shown) return;
+      if (view.loading) view.queue.push(ev);
+      else apply(ev);
+    }
+
+    $('sessSel').onchange = () => { view.session = $('sessSel').value; view.run = 'live'; renderSelectors(); loadRun(targetRun()); };
+    $('runSel').onchange = () => {
+      if ($('runSel').value === 'sim') return;
+      view.run = $('runSel').value;
+      loadRun(targetRun());
+    };
+
+    // ---------- Visualização: grafo ou linha do tempo ----------
+
+    function setMode(mode) {
+      view.mode = mode;
+      $('canvas').hidden = mode !== 'graph';
+      $('timeline').hidden = mode !== 'timeline';
+      $('viewGraph').setAttribute('aria-pressed', mode === 'graph');
+      $('viewTimeline').setAttribute('aria-pressed', mode === 'timeline');
+      try { localStorage.setItem('squad-panel-view', mode); } catch { /* sem storage */ }
+      if (mode === 'timeline') renderTimeline(); else fit();
+    }
+    $('viewGraph').onclick = () => setMode('graph');
+    $('viewTimeline').onclick = () => setMode('timeline');
+
+    // ---------- Montagem inicial ----------
+
+    addNode('prompt', 'Prompt', 'Aguardando pedido', 'prompt');
+    addNode('main', 'Orquestrador', 'Sessão principal', 'main');
+    const hint = document.createElement('p');
+    hint.className = 'hint'; hint.id = 'hint';
+    hint.textContent = 'Nenhum agente encontrado em .claude/agents. Rode o server.js na pasta do projeto (ou passe a pasta como argumento).';
+    hint.hidden = true;
+    $('stage').appendChild(hint);
+    layout();
+    renderSelectors();
+    try { if (localStorage.getItem('squad-panel-view') === 'timeline') setMode('timeline'); } catch { /* sem storage */ }
+
+    // Conexão com o servidor local (funciona servido pelo server.js ou aberto como arquivo)
+    const es = new EventSource(base + '/stream');
+    const conn = (on) => { $('conn').dataset.on = on; $('conn').lastChild.textContent = on ? 'Conectado ao Claude Code' : 'Sem conexão com o servidor'; };
+    es.onopen = () => conn(true);
+    es.onerror = () => conn(false);
+    es.onmessage = (m) => { try { onServerEvent(JSON.parse(m.data)); } catch (e) { console.error(e); } };
+
+    // ---------- Simulação para apresentações (não depende do Claude Code) ----------
+
+    function buildSim() {
+      // Usa infra, dev e qa-revisor se existirem; senão, os primeiros agentes da pasta.
+      const ids = config.map((a) => a.id);
+      const rest = ids.filter((id) => !['infra', 'dev', 'qa-revisor'].includes(id));
+      const [A, B, C] = ['infra', 'dev', 'qa-revisor'].map((id) => (ids.includes(id) || !rest.length ? id : rest.shift()));
+      const u = (input, output, cacheRead, cost) => ({ input, output, cacheRead, cacheWrite: Math.round(input * 2), cost, priced: true, models: ['claude-sonnet-5'] });
+      return [
+        [0, { event: 'UserPromptSubmit', prompt: 'Criar endpoint POST /tarefas que publica na fila tarefas-criadas' }],
+        [600, { event: 'PreToolUse', tool: 'Read', detail: 'CLAUDE.md' }],
+        [1200, { event: 'PreToolUse', tool: 'Glob', detail: 'app/**/*.js' }],
+        [2000, { event: 'PreToolUse', tool: 'Agent', toolUseId: 't1', subagent: A, detail: 'Criar fila de notificações', taskPrompt: 'Crie a fila "tarefas-criadas" no infra/ambiente.json com DLQ e retenção de 4 dias. Valide com npm run infra:validar.' }],
+        [2100, { event: 'PreToolUse', tool: 'Agent', toolUseId: 't2', subagent: B, detail: 'Implementar endpoint de tarefas', taskPrompt: 'Implemente POST /tarefas em app/src/tarefas.js: valide o corpo, grave a tarefa e publique na fila tarefas-criadas. Rode npm test.' }],
+        [2200, { event: 'SubagentStart', agentId: 'a1', agentType: A }],
+        [2250, { event: 'SubagentStart', agentId: 'a2', agentType: B }],
+        [2800, { event: 'PreToolUse', agentId: 'a1', agentType: A, tool: 'Read', detail: 'infra/ambiente.json' }],
+        [3100, { event: 'PreToolUse', agentId: 'a2', agentType: B, tool: 'Agent', toolUseId: 't3', subagent: 'Explore', detail: 'Mapear rotas existentes', taskPrompt: 'Liste as rotas registradas em app/src e o padrão de validação usado.' }],
+        [3200, { event: 'SubagentStart', agentId: 'a4', agentType: 'Explore' }],
+        [3700, { event: 'PreToolUse', agentId: 'a4', agentType: 'Explore', tool: 'Grep', detail: 'router\\.(get|post)' }],
+        [3900, { event: 'PreToolUse', agentId: 'a1', agentType: A, tool: 'Edit', detail: 'infra/ambiente.json' }],
+        [4500, { event: 'PreToolUse', agentId: 'a4', agentType: 'Explore', tool: 'Read', detail: 'app/src/servidor.js' }],
+        [5200, { event: 'SubagentStop', agentId: 'a4', agentType: 'Explore' }],
+        [5250, { event: 'PostToolUse', agentId: 'a2', agentType: B, tool: 'Agent', toolUseId: 't3', subagent: 'Explore', result: 'Rotas: GET /saude, GET /tarefas. Validação feita com o helper validar() em app/src/validacao.js.' }],
+        [5550, { event: 'Usage', agentId: 'a4', usage: u(1800, 900, 21000, 0.021), source: 'transcript' }],
+        [5400, { event: 'PreToolUse', agentId: 'a1', agentType: A, tool: 'Bash', detail: 'npm run infra:validar' }],
+        [5800, { event: 'PreToolUse', agentId: 'a2', agentType: B, tool: 'Write', detail: 'app/src/tarefas.js' }],
+        [6800, { event: 'SubagentStop', agentId: 'a1', agentType: A }],
+        [6850, { event: 'PostToolUse', tool: 'Agent', toolUseId: 't1', subagent: A, result: 'Fila tarefas-criadas criada com DLQ tarefas-criadas-dlq. Validação passou.' }],
+        [7100, { event: 'Usage', agentId: 'a1', usage: u(2400, 1300, 30000, 0.031), source: 'transcript' }],
+        [7200, { event: 'PreToolUse', agentId: 'a2', agentType: B, tool: 'Bash', detail: 'npm test' }],
+        [8000, { event: 'PostToolUseFailure', agentId: 'a2', agentType: B, tool: 'Bash' }],
+        [8500, { event: 'PreToolUse', agentId: 'a2', agentType: B, tool: 'Edit', detail: 'app/src/tarefas.js' }],
+        [9200, { event: 'PreToolUse', agentId: 'a2', agentType: B, tool: 'Bash', detail: 'npm test' }],
+        [10400, { event: 'SubagentStop', agentId: 'a2', agentType: B }],
+        [10450, { event: 'PostToolUse', tool: 'Agent', toolUseId: 't2', subagent: B, result: 'POST /tarefas implementado em app/src/tarefas.js e registrado no servidor. 12 testes passando.' }],
+        [10700, { event: 'Usage', agentId: 'a2', usage: u(5200, 3900, 88000, 0.083), source: 'transcript' }],
+        [11000, { event: 'PreToolUse', tool: 'Agent', toolUseId: 't5', subagent: C, background: true, detail: 'Revisar endpoint de tarefas', taskPrompt: 'Revise o endpoint POST /tarefas contra specs/tarefas.md. Aponte bugs e rode os testes.' }],
+        [11050, { event: 'PostToolUse', tool: 'Agent', toolUseId: 't5', subagent: C, result: 'Tarefa iniciada em segundo plano.' }],
+        [11100, { event: 'SubagentStart', agentId: 'a3', agentType: C }],
+        [11300, { event: 'Stop' }],
+        [11900, { event: 'PreToolUse', agentId: 'a3', agentType: C, tool: 'Read', detail: 'specs/tarefas.md' }],
+        [12800, { event: 'PreToolUse', agentId: 'a3', agentType: C, tool: 'Bash', detail: 'npm test' }],
+        [13900, { event: 'PreToolUse', agentId: 'a3', agentType: C, tool: 'Grep', detail: 'TODO|FIXME' }],
+        [14800, { event: 'SubagentStop', agentId: 'a3', agentType: C }],
+        [14900, { event: 'UserPromptSubmit', internal: 'task-notification', fromAgentId: 'a3', status: 'completed', prompt: 'Revisão aprovada, 12 testes passando', result: 'Revisão aprovada. O endpoint segue a spec; sugiro limitar o título a 200 caracteres.' }],
+        [15100, { event: 'Usage', agentId: 'a3', usage: u(3100, 1100, 41000, 0.032), source: 'transcript' }],
+        [15600, { event: 'Stop' }],
+        [15900, { event: 'Usage', main: true, usage: u(6100, 2800, 120000, 0.094), source: 'transcript' }],
+      ].sort((a, b) => a[0] - b[0]);
+    }
+    let timers = [];
+    function stopSim() {
+      timers.forEach(clearTimeout); timers = [];
+      $('btnSim').disabled = false;
+    }
+    $('btnSim').onclick = () => {
+      stopSim();
+      view.loading = null;
+      clearRun();
+      view.shown = 'sim'; view.meta = null;
+      renderSelectors();
+      $('btnSim').disabled = true;
+      const sim = buildSim();
+      timers = sim.map(([t, ev]) => setTimeout(() => handle({ ...ev, ts: Date.now() }), t));
+      timers.push(setTimeout(() => { $('btnSim').disabled = false; }, sim.at(-1)[0] + 100));
+    };
+    $('btnOpen').onclick = () => groups.forEach((g) => { g.el.open = true; });
+    $('btnClose').onclick = () => groups.forEach((g) => { g.el.open = false; });
+  </script>
+</body>
+
+</html>
