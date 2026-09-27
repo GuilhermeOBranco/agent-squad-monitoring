@@ -158,14 +158,27 @@ async function readTranscript(file, { since = 0, mainOnly = false } = {}) {
   return { usage, lastText: last ? last.text.join('\n').trim() : '' };
 }
 
+// Só lê transcripts de verdade: arquivos .jsonl dentro da pasta de dados do Claude Code.
+// Assim um evento forjado não consegue fazer o server abrir um arquivo qualquer do disco.
+const CLAUDE_DIRS = [process.env.CLAUDE_CONFIG_DIR, path.join(os.homedir(), '.claude'), ...(process.env.SQUAD_TRANSCRIPT_DIRS || '').split(path.delimiter)]
+  .filter(Boolean).map((d) => path.resolve(d));
+function safeTranscript(file) {
+  if (typeof file !== 'string' || !file.endsWith('.jsonl')) return null;
+  const full = path.resolve(file);
+  if (/[\\/]\.\.([\\/]|$)/.test(file)) return null;
+  const inside = CLAUDE_DIRS.some((d) => full.toLowerCase().startsWith(d.toLowerCase() + path.sep));
+  return inside && fs.existsSync(full) ? full : null;
+}
+
 function subagentTranscript(ev) {
   const candidates = [ev.agentTranscriptPath];
-  if (ev.transcriptPath && ev.agentId) {
+  if (ev.transcriptPath && ev.agentId && /^[\w-]+$/.test(ev.agentId) && /^[\w-]*$/.test(ev.session || '')) {
     const dir = path.dirname(ev.transcriptPath);
     candidates.push(path.join(dir, ev.session || '', 'subagents', `agent-${ev.agentId}.jsonl`));
     candidates.push(path.join(dir, `agent-${ev.agentId}.jsonl`));
   }
-  return candidates.find((f) => f && fs.existsSync(f));
+  for (const f of candidates) { const ok = safeTranscript(f); if (ok) return ok; }
+  return null;
 }
 
 // ---------- Execuções (uma por prompt, separadas por sessão) ----------
@@ -312,9 +325,9 @@ function receive(input) {
     }, 300);
   }
   // Tokens do orquestrador nesta execução: só as mensagens da sessão principal desde o prompt.
-  if (ev.event === 'Stop' && !ev.agentId && transcriptPath) {
+  if (ev.event === 'Stop' && !ev.agentId && safeTranscript(transcriptPath)) {
     setTimeout(async () => {
-      const t = await readTranscript(transcriptPath, { since: run.meta.start - 1000, mainOnly: true });
+      const t = await readTranscript(safeTranscript(transcriptPath), { since: run.meta.start - 1000, mainOnly: true });
       if (t) record(run, { event: 'Usage', main: true, usage: t.usage, source: 'transcript', ts: Date.now() });
     }, 300);
   }
@@ -322,16 +335,28 @@ function receive(input) {
 
 // ---------- HTTP ----------
 
+// Só aceita quem fala com o painel pelo próprio endereço local:
+// - Host diferente de localhost/127.0.0.1 barra ataques de DNS rebinding;
+// - Origin de outro site barra páginas abertas no navegador lendo o histórico ou injetando eventos.
+// O hook (Node) não envia Origin; o painel envia a própria origem.
+const LOCAL_HOSTS = new Set([`localhost:${PORT}`, `127.0.0.1:${PORT}`, `[::1]:${PORT}`]);
+function allowed(req) {
+  if (!LOCAL_HOSTS.has(String(req.headers.host || '').toLowerCase())) return false;
+  const origin = req.headers.origin;
+  if (origin && !LOCAL_HOSTS.has(origin.toLowerCase().replace(/^http:\/\//, ''))) return false;
+  return true;
+}
+
 const server = http.createServer((req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    return res.end();
-  }
+  if (!allowed(req)) { res.statusCode = 403; return res.end('acesso negado'); }
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'");
   const json = (obj, code = 200) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); };
   const url = req.url.split('?')[0];
 
   if (req.method === 'POST' && url === '/event') {
+    // Exigir JSON impede formulários/fetch "simples" de outros sites (que não mandam esse tipo sem preflight).
+    if (!/^application\/json\b/i.test(req.headers['content-type'] || '')) { res.statusCode = 415; return res.end('use application/json'); }
     let body = '';
     req.on('data', (c) => { body += c; if (body.length > 2e6) req.destroy(); });
     req.on('end', () => {
